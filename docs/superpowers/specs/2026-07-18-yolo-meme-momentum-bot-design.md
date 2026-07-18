@@ -17,8 +17,9 @@ design:
 
 - **The strategy never fired.** `CombinedBinHAndCluc` made zero trades in 11 days of dry-run.
   A minimum signal-frequency requirement is therefore a first-class acceptance criterion here.
-- **Wrong universe.** It traded BTC/ETH/SOL/XRP majors — structurally incapable of the
-  intended risk/reward. This project trades meme coins only.
+- **Wrong universe.** It traded a fixed list of four majors (BTC/ETH/SOL/XRP) — structurally
+  incapable of the intended risk/reward. This project dynamically hunts whatever is trending
+  on high volume instead of any fixed list.
 - **Machinery sprawl.** Multi-agent LLM review boards, vector DBs, observability servers,
   FreqAI, and a 67-strategy zoo were built before anything traded. This project is one
   strategy, two configs, and one small sentiment add-on. Nothing else.
@@ -45,15 +46,28 @@ Freqtrade + Kraken platform decision.
 - **Repo:** private GitHub `asandler2727-coder/yolo`; keys live only in gitignored files on
   the machine that runs the bot.
 
-## 4. Trading universe
+## 4. Trading universe — dynamic whole-market scan
 
-Kraken meme coins quoted in **USD** (not USDT — Kraken's meme liquidity is on USD pairs).
-Target list, to be confirmed against Kraken's live tradeable pairs during implementation:
+Not a fixed coin list. The bot scans (nearly) the whole Kraken **USD-quoted** spot market and
+trades whatever is trending, using Freqtrade's native dynamic pairlist chain:
 
-`DOGE/USD, SHIB/USD, PEPE/USD, BONK/USD, WIF/USD, FLOKI/USD`
+1. **VolumePairList** — rank all Kraken USD pairs by quote volume, keep the top ~30.
+2. **Movement filter** — of those, prefer pairs with meaningful recent price change /
+   volatility (the "trending" part; exact filter tuned during implementation).
+3. **Sanity filters** — drop pairs with wide spreads, ultra-low prices (bad fill precision),
+   or thin liquidity. Trending-but-illiquid means terrible fills; those are excluded.
+4. **Blacklist** — stablecoins and pegged/wrapped assets (USDT, USDC, DAI, EUR, WBTC, …),
+   plus any coins Austin personally holds (carried hard rule; Austin supplies the holdings
+   list at implementation time).
 
-Static whitelist in v1. Phase 2 (§7) rotates it based on X sentiment. Coins Austin already
-holds personally are never added to the whitelist (carried hard rule).
+The refreshed list feeds the momentum strategy, which still makes every actual trade decision.
+Majors like BTC/ETH may appear when they're genuinely the top movers — that's acceptable; the
+scan follows the market's attention rather than a fixed meme menu.
+
+**Backtesting note:** dynamic selection must also be applied historically (data downloaded for
+the broad Kraken USD universe, volume/movement ranking computed from candles per period) so
+backtests aren't biased by today's trending list — a look-ahead trap the implementation must
+explicitly avoid.
 
 ## 5. Strategy — `MemeMomentum`
 
@@ -73,7 +87,7 @@ Timeframe: **15m candles**. Long-only spot momentum:
 ### Minimum-aggression requirement (hard acceptance criterion)
 
 The tuned strategy must produce **≥ 5 trades/week on average in backtest** across the
-whitelist. Below that bar, it gets retuned before it ever reaches dry-run. During dry-run and
+scanned universe. Below that bar, it gets retuned before it ever reaches dry-run. During dry-run and
 live operation, **zero trades in any 48h window while markets are open is treated as a fault**
 to investigate the same day, not a curiosity.
 
@@ -94,11 +108,13 @@ Social sentiment picks the menu; momentum pulls the trigger. Sentiment never tou
 exit logic (it is not backtestable and would poison the strategy's testability).
 
 - A scheduled job (1–2×/day) runs a Grok X-sentiment scan (`whathappened`-style analysis) over
-  the meme coin space and writes a short report plus a proposed whitelist (ranked by X heat,
-  filtered to Kraken-tradeable pairs) into the repo.
-- **Advisory mode first:** Austin (or a one-command apply step) accepts the proposed whitelist.
-  If its picks prove sensible across the dry-run period, it graduates to rotating the
-  whitelist automatically.
+  the crypto space and writes a short report into the repo: which Kraken-tradeable coins X is
+  heating up on, plus any the volume scan (§4) is watching that sentiment says are cooling.
+- Its output can add sentiment-hot coins to the scan's candidate set or blacklist
+  sentiment-dead ones — it adjusts *which pairs get watched*, never entries/exits.
+- **Advisory mode first:** Austin (or a one-command apply step) accepts its suggestions. If
+  its picks prove sensible across the dry-run period, it graduates to applying them
+  automatically.
 - Built only after v1's backtest → dry-run pipeline is running. It is one small script + one
   schedule, not an orchestrator.
 

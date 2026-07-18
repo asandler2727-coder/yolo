@@ -1,7 +1,7 @@
 # YOLO — Meme Coin Momentum Bot
 
-An automated meme coin trading bot built on [Freqtrade](https://www.freqtrade.io/), trading
-meme coins (DOGE, SHIB, PEPE, BONK, WIF, FLOKI) on Kraken with a price/volume momentum
+An automated trading bot built on [Freqtrade](https://www.freqtrade.io/). It scans the whole
+Kraken USD market for trending, high-volume coins and trades them with a price/volume momentum
 strategy. Austin owns the on/off switch; the code does the trading.
 
 **Status:** design phase — see the spec in `docs/superpowers/specs/`.
