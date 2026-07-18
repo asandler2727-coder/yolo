@@ -1,7 +1,7 @@
 # YOLO — Meme Coin Momentum Bot: Design Spec
 
 **Date:** 2026-07-18
-**Status:** Approved by Austin (pending final spec review)
+**Status:** Approved by Austin 2026-07-18
 **Repo:** https://github.com/asandler2727-coder/yolo
 
 ## 1. Goal
@@ -133,7 +133,11 @@ exit logic (it is not backtestable and would poison the strategy's testability).
 1. **Backtest gate:** fresh 15m data for the whitelist downloaded (Kraken via trades download,
    or another US-accessible source with proper 15m spot history — resolved during
    implementation). Strategy tuned until it meets: ≥5 trades/week, positive expectancy after
-   Kraken taker fees, max drawdown within tolerance. Results recorded in the repo.
+   Kraken Pro API fees (~0.25% maker / 0.40% taker at entry volume tier), max drawdown within
+   tolerance. Results recorded in the repo.
+   *Note (settled 2026-07-18): Kraken+'s "zero trading fees" perk applies only to instant
+   buy/sell/convert in the Kraken app/web and explicitly excludes Spot/API/Kraken Pro trading
+   — it does not apply to this bot and is not part of the fee model.*
 2. **Dry-run gate: exactly 2 weeks** of paper trading on the Windows box, then a decision —
    no extensions by default. Pass = the bot actually fired at a healthy rate AND beat holding
    cash after fees. Fail = retune, restart the 2-week clock.
