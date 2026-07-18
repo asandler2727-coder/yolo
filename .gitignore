@@ -1,0 +1,22 @@
+# Secrets — real configs with API keys are never committed
+config-live.json
+.env
+
+# Freqtrade runtime artifacts
+user_data/data/
+user_data/logs/
+user_data/backtest_results/
+user_data/plot/
+user_data/hyperopt_results/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# OS noise
+.DS_Store
