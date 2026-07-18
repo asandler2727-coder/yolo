@@ -20,3 +20,6 @@ venv/
 
 # OS noise
 .DS_Store
+
+# Cross-agent handoff ledger (local state, never committed)
+.handoff/
