@@ -1,0 +1,65 @@
+{
+    "bot_name": "YOLO",
+    "strategy": "MemeMomentum",
+    "timeframe": "15m",
+    "dry_run": true,
+    "dry_run_wallet": 750,
+    "max_open_trades": 3,
+    "stake_currency": "USD",
+    "stake_amount": 250,
+    "tradable_balance_ratio": 1.0,
+    "fiat_display_currency": "USD",
+    "trading_mode": "spot",
+    "cancel_open_orders_on_exit": false,
+    "unfilledtimeout": {"entry": 10, "exit": 10, "unit": "minutes"},
+    "entry_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1
+    },
+    "exit_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1
+    },
+    "exchange": {
+        "name": "kraken",
+        "key": "",
+        "secret": "",
+        "pair_whitelist": [],
+        "pair_blacklist": [
+            "^(USDT|USDC|DAI|PYUSD|USDS|USDG|RLUSD|TUSD|EURT|EURC|EURR|EUR|GBP|AUD|CHF|CAD|JPY|TBTC|WBTC|CBBTC|LSETH|WETH|WAXL)/.*"
+        ]
+    },
+    "pairlists": [
+        {
+            "method": "VolumePairList",
+            "number_assets": 30,
+            "sort_key": "quoteVolume",
+            "min_value": 250000,
+            "refresh_period": 1800
+        },
+        {"method": "SpreadFilter", "max_spread_ratio": 0.005},
+        {"method": "PriceFilter", "low_price_ratio": 0.005},
+        {
+            "method": "RangeStabilityFilter",
+            "lookback_days": 1,
+            "min_rate_of_change": 0.02,
+            "refresh_period": 1800
+        }
+    ],
+    "telegram": {"enabled": false, "token": "", "chat_id": ""},
+    "api_server": {
+        "enabled": true,
+        "listen_ip_address": "0.0.0.0",
+        "listen_port": 8080,
+        "verbosity": "error",
+        "jwt_secret_key": "SET_VIA_ENV",
+        "CORS_origins": [],
+        "username": "yolo",
+        "password": "SET_VIA_ENV"
+    },
+    "initial_state": "running",
+    "force_enter_enable": false,
+    "internals": {"process_throttle_secs": 5}
+}

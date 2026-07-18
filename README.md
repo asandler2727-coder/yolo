@@ -30,3 +30,7 @@ implementation exists.
 
 Predecessor: `~/freqtrade` (the "AI Trading Company" project) — retired; its autopsy is
 summarized in the spec.
+
+## Versions
+
+Freqtrade 2026.4 (CCXT 4.5.50) via freqtradeorg/freqtrade:stable, resolved 2026-07-18.
