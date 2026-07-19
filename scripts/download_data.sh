@@ -7,10 +7,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 TIMERANGE="${1:-20260101-20260715}"
+PAIRS_FILE="${2:-pairs_usd.json}"
 
 docker compose run --rm freqtrade download-data \
   --config /freqtrade/config-paper.json \
-  --pairs-file /freqtrade/user_data/pairs_usd.json \
+  --pairs-file "/freqtrade/user_data/$PAIRS_FILE" \
   -t 15m \
   --dl-trades \
   --timerange "$TIMERANGE"
