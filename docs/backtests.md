@@ -88,3 +88,51 @@ baseline+sweep when Apr–Jul lands (regime may differ; note Feb–Mar was a bea
 long-only momentum amplified it), (b) revise the strategy design (regime filter,
 non-chasing entries, fee-aware exits) via a spec update before any further tuning,
 (c) independent design critique before more spend.
+
+## v2 pullback-in-uptrend, Feb–Mar 2026 in-sample — 2026-07-19 — GATE FAIL (profit)
+
+First run of the **v2 redesign** (BTC 1h up-regime filter + 15m pullback-into-support
+entry, non-chase, fee-aware 3/2/1% ROI ladder + −4% stop + trailing lock + 6h stagnation).
+v1 (chase a completed pump) is frozen. Run: `rolling_backtest.py 2026-02 2026-03` at
+`--fee 0.004 --enable-protections`, top-30-by-prior-month-volume universe.
+
+| Month | Trades | Profit % | Max DD % | Result file |
+|---|---|---|---|---|
+| 2026-02 | 14 | -5.08 | 5.40 | backtest-result-2026-07-19_07-59-26.zip |
+| 2026-03 | 22 | -3.28 | 5.37 | backtest-result-2026-07-19_07-59-33.zip |
+
+Total: 36 trades, 4.14 trades/week overall, **-8.36% summed monthly profit**, worst
+monthly drawdown **5.40%**, gate **FAIL** on the profit leg.
+
+**Harness reporting bug found & fixed first (do not compare against any earlier v2
+number).** `run_month` had read freqtrade's shared `.last_result.json` pointer immediately
+after the container exit; over the macOS Docker Desktop bind mount that host read returned
+a *stale* pointer from a prior session's v1 run, so an interim summary mis-reported v2 as
+−72% (89/90 v1 trades). Fixed by parsing the result filename from freqtrade's own captured
+stdout (`dumping json to "...meta.json"`), which has no filesystem race; the harness now
+logs, per month, the exact file it read + trades + profit. The re-run above reproduced the
+true zips exactly, confirming the fix (`scripts/test_rolling_ranking.py` covers the parser).
+
+**Regime gating independently audited (`scripts/verify_regime_gating.py`).** Window was
+37% up-regime / 63% down. All 36 entries fell inside the up-regime — none leaked into the
+bear — reconstructing the BTC 1h regime with freqtrade's real +45m informative offset. So
+the loss is **genuine in-regime negative expectancy, not a gating leak**. In up-regime
+periods (~3.1 of 8.4 weeks) that is **11.5 trades/wk**, so the amended gate's
+regime-conditional *frequency* leg passes; the failure is entirely on *profit*.
+
+Per-trade shape: **58% win rate (21/36) but −0.69% average trade.** Winners are capped by
+the ROI ladder while losers run to the −4% stop; ~0.8% round-trip taker fees erase the thin
+edge. Majority-win, negative-expectancy — exactly what the profit gate exists to catch.
+
+**vs v1, same window:** v1 lost ~−74% over 179 trades with ~48% drawdown; v2 loses −8.36%
+over 36 trades with 5.4% drawdown. The redesign killed the catastrophe — it correctly sits
+out the 63% bear and keeps drawdown to a third of the $750/3×$250 budget's tolerance — but
+it has **not** produced positive expectancy in-sample.
+
+**Verdict (plan Task 4 / amended gate): FAIL in-sample profit; edge not confirmed even
+in-regime; OOS (Apr–Jul) pending download.** This is not "obviously broken" (36 real,
+correctly-gated entries), so per the spec it is **not** a cue to auto-tune. Next direction
+is Austin's call: (a) wait for the Apr–Jul OOS run before any judgment, (b) one conceptual
+design change (e.g. exit asymmetry — the −4:+3 R:R with fees is the visible culprit) via a
+spec update, or (c) table v2 and open the next tabled family. No deployment; gate unchanged;
+protections intact.

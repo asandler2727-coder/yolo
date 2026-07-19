@@ -4,7 +4,35 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-from rolling_backtest import rank_pairs_for_month
+from rolling_backtest import rank_pairs_for_month, result_file_from_output
+
+
+def test_result_file_taken_from_this_runs_stdout(tmp_path):
+    # freqtrade prints the exact file it wrote; parsing that (not the shared
+    # .last_result.json pointer) is race-free and immune to bind-mount lag.
+    out = (
+        "INFO - Backtesting with data ...\n"
+        'freqtrade.misc - INFO - dumping json to '
+        '"/freqtrade/user_data/backtest_results/backtest-result-2026-07-19_07-51-03.meta.json"\n'
+        "Result for strategy MemeMomentum\n"
+    )
+    assert result_file_from_output(out, tmp_path) == (
+        tmp_path / "backtest-result-2026-07-19_07-51-03.zip"
+    )
+
+
+def test_result_file_uses_last_dump_when_several(tmp_path):
+    out = (
+        'dumping json to "/x/backtest-result-2026-07-19_01-00-00.meta.json"\n'
+        'dumping json to "/x/backtest-result-2026-07-19_02-00-00.meta.json"\n'
+    )
+    assert result_file_from_output(out, tmp_path) == (
+        tmp_path / "backtest-result-2026-07-19_02-00-00.zip"
+    )
+
+
+def test_result_file_none_when_no_dump_line(tmp_path):
+    assert result_file_from_output("no result written", tmp_path) is None
 
 
 def _write_feather(tmp_path, pair, month, price, volume):

@@ -8,9 +8,10 @@ and checked against the spec gate: >=5 trades/week and positive profit at
 taker fees. Usage: python3 scripts/rolling_backtest.py 2026-02 2026-07
 """
 import json
-import shutil
+import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -42,6 +43,24 @@ def rank_pairs_for_month(data_dir: Path, month_start: pd.Timestamp, top_n: int) 
     return [p for p, _ in sorted(volumes.items(), key=lambda kv: -kv[1])[:top_n]]
 
 
+def result_file_from_output(output: str, results_dir: Path) -> Path | None:
+    """Locate the result THIS run wrote by parsing freqtrade's own stdout,
+    which prints e.g. `dumping json to ".../backtest-result-<ts>.meta.json"`.
+
+    Reading the shared `.last_result.json` pointer instead is unsafe: over a
+    macOS Docker Desktop bind mount that host-side read can return a stale
+    value from a *previous* run before the container's write propagates, which
+    silently attributed old v1 numbers to a v2 run. The stdout is captured
+    in-process, so it names this run's file with no filesystem race.
+    """
+    matches = re.findall(
+        r'dumping json to "([^"]*backtest-result-[^"]*\.meta\.json)"', output
+    )
+    if not matches:
+        return None
+    return results_dir / Path(matches[-1]).name.replace(".meta.json", ".zip")
+
+
 def run_month(month_start: pd.Timestamp, pairs: list[str]) -> dict | None:
     month_end = month_start + pd.offsets.MonthBegin(1)
     timerange = f"{month_start:%Y%m%d}-{month_end:%Y%m%d}"
@@ -59,16 +78,30 @@ def run_month(month_start: pd.Timestamp, pairs: list[str]) -> dict | None:
     if out.returncode != 0:
         print(f"  {month_start:%Y-%m}: backtest FAILED\n{out.stderr[-2000:]}")
         return None
-    # freqtrade writes a .last_result.json pointer to the newest result zip/json
-    last = json.loads((RESULTS_DIR / ".last_result.json").read_text())
-    result_file = RESULTS_DIR / last["latest_backtest"]
+    # Use the file THIS run reported, not the shared pointer (see docstring).
+    result_file = result_file_from_output(out.stdout + out.stderr, RESULTS_DIR)
+    if result_file is None:
+        print(f"  {month_start:%Y-%m}: could not find result file in output")
+        return None
+    # The zip itself may lag the stdout line across the bind mount; wait briefly.
+    for _ in range(20):
+        if result_file.exists():
+            break
+        time.sleep(0.5)
+    if not result_file.exists():
+        print(f"  {month_start:%Y-%m}: result file {result_file.name} never appeared")
+        return None
     stats = _load_stats(result_file)["strategy"]["MemeMomentum"]
-    return {
+    row = {
         "month": f"{month_start:%Y-%m}",
         "trades": stats["total_trades"],
         "profit_pct": stats["profit_total"] * 100,
         "max_drawdown_pct": stats.get("max_drawdown_account", 0) * 100,
     }
+    # Inline so a stale/mismatched read is visible in the run log, not silent.
+    print(f"  {row['month']}: {result_file.name} -> "
+          f"{row['trades']} trades, {row['profit_pct']:.2f}% profit")
+    return row
 
 
 def _load_stats(result_file: Path) -> dict:
