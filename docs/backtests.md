@@ -27,6 +27,26 @@ roi {0: 0.10, 120: 0.04, 360: 0.02}).
 Total: 489 trades, 18.76 trades/week, -225.88% summed monthly profit, gate **FAIL**
 (profit leg; the trades/week leg passes with big margin).
 
+## Real baseline, Feb–Mar 2026 full universe — 2026-07-19
+
+Data: official Kraken bulk OHLCVT export (all pairs through 2026-03-31), 582 USD pairs on
+disk; ranking + backtest windows both fully covered for Feb and Mar. Apr–Jul pending
+download; when it lands it serves as out-of-sample validation for whatever Task 6 selects.
+Params: defaults (as above). Run: `rolling_backtest.py 2026-02 2026-03`.
+
+| Month | Trades | Profit % | Max DD % |
+|---|---|---|---|
+| 2026-02 | 89 | -48.57 | 48.57 |
+| 2026-03 | 90 | -25.66 | 25.79 |
+
+Total: 179 trades, 20.6 trades/week, -74.23%, gate **FAIL** (profit leg; frequency leg
+passes 4x over).
+
+Open methodology question for the final gate run: the backtest does not currently apply
+the strategy's protections (freqtrade needs `--enable-protections`); live, the 15%
+MaxDrawdown halt would have stopped February long before -48%. Decide before the
+go/no-go verdict whether the gate run should enable them for realism.
+
 Takeaways for Task 6 tuning (to revisit on full data):
 - Signal frequency is not the problem — 3.7x the 5/week floor even on 13 pairs.
 - Losses concentrated in illiquid small caps; the real top-30-by-volume universe should
