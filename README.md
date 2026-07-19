@@ -25,8 +25,14 @@ strategy. Austin owns the on/off switch; the code does the trading.
 
 ## Running it
 
-Runs via Docker (Docker Desktop on the Windows box). Exact commands land here once the
-implementation exists.
+Runs via Docker. Full Windows deployment steps: [docs/DEPLOY-WINDOWS.md](docs/DEPLOY-WINDOWS.md).
+
+On the Mac (same commands, for testing):
+
+- Start (paper mode): `docker compose up -d`
+- Watch: open http://127.0.0.1:8080 (FreqUI) — login `yolo` / the FT_PASS from `.env`
+- Daily health check: `FT_PASS=... .venv/bin/python scripts/health_check.py`
+- Stop (kill switch): `docker compose down`
 
 Predecessor: `~/freqtrade` (the "AI Trading Company" project) — retired; its autopsy is
 summarized in the spec.
