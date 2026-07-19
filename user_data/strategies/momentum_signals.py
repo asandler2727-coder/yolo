@@ -49,6 +49,21 @@ def add_indicators(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     return df
 
 
+def resample_1h(df: pd.DataFrame) -> pd.DataFrame:
+    """Resample a 15m close series to 1h buckets labelled by their OPEN time
+    (closed='left'), so a 1h bar never contains a candle that closes after its
+    own label. Feeds regime_mask_from_btc; the strategy then merges the result
+    back with freqtrade's merge_informative_pair (which adds the safe offset)."""
+    return (
+        df[["date", "close"]]
+        .set_index("date")
+        .resample("1h", label="left", closed="left")
+        .agg({"close": "last"})
+        .dropna()
+        .reset_index()
+    )
+
+
 def regime_mask_from_btc(btc_1h: pd.DataFrame, params: dict) -> pd.Series:
     """Up-regime when BTC 1h close is above EMA(slow) and EMA(fast) > EMA(slow)."""
     close = btc_1h["close"]

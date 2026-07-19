@@ -24,6 +24,7 @@ from momentum_signals import (  # noqa: E402
     add_indicators,
     entry_mask,
     regime_mask_from_btc,
+    resample_1h,
 )
 
 P = DEFAULT_PARAMS
@@ -69,6 +70,21 @@ def chase():
 def btc_trend(start, step, n=60):
     closes = [start + step * i for i in range(n)]
     return pd.DataFrame({"close": closes, "volume": [1000.0] * n})
+
+
+# --- 1h resample (regime source; look-ahead-sensitive) --------------------
+
+def test_resample_1h_uses_bucket_open_and_last_close():
+    # A 1h bar labelled 10:00 must contain only 10:00..10:45 (close 4), never
+    # 11:00's close (5) — otherwise the regime would peek ahead one hour.
+    dates = pd.date_range("2026-02-01 10:00", periods=9, freq="15min", tz="UTC")
+    out = resample_1h(pd.DataFrame({"date": dates, "close": [1.0, 2, 3, 4, 5, 6, 7, 8, 9]}))
+    assert list(out["date"]) == [
+        pd.Timestamp("2026-02-01 10:00", tz="UTC"),
+        pd.Timestamp("2026-02-01 11:00", tz="UTC"),
+        pd.Timestamp("2026-02-01 12:00", tz="UTC"),
+    ]
+    assert list(out["close"]) == [4.0, 8.0, 9.0]
 
 
 # --- regime ---------------------------------------------------------------

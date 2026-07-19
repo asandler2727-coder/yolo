@@ -3,33 +3,52 @@ from datetime import datetime, timedelta
 from pandas import DataFrame
 
 from freqtrade.persistence import Trade
-from freqtrade.strategy import IStrategy
+from freqtrade.strategy import IStrategy, merge_informative_pair
 
-from momentum_signals import DEFAULT_PARAMS, add_indicators, entry_mask
+from momentum_signals import (
+    DEFAULT_PARAMS,
+    add_indicators,
+    entry_mask,
+    regime_mask_from_btc,
+    resample_1h,
+)
 
 
 class MemeMomentum(IStrategy):
-    """Spec 2026-07-18 §5: long-only 15m momentum. Entries = pump + volume spike.
-    Exits = ROI ladder, hard stop, trailing stop, stagnation timeout.
-    Protections here implement spec §6 and are never weakened (spec §8.5)."""
+    """v2 (redesign 2026-07-19): long-only 15m pullback-in-uptrend.
+
+    Entry = up regime (BTC 1h trend) + prior impulse + pullback into a support
+    band + volume alive + anti-chase, from the pure-pandas momentum_signals
+    module. Exits are fee-aware (~0.8% round-trip taker): a 3%/2%/1% ROI ladder,
+    a -4% hard stop, a tight trailing lock, and a 6h stagnation timeout.
+    Protections implement spec §6 and are never weakened (spec §8.5).
+
+    Regime source: BTC/USD is the Kraken pair actually in the dataset. Only 15m
+    BTC data exists, so the 1h regime is resampled from it and merged back with
+    merge_informative_pair (which adds the offset that prevents look-ahead). If
+    BTC data is missing for a window, regime fails closed -> no entries.
+    """
 
     INTERFACE_VERSION = 3
     timeframe = "15m"
     can_short = False
     process_only_new_candles = True
-    startup_candle_count = 60  # > volume_window(48) + momentum_candles(8)
+    # 600 x 15m = 6.25 days -> ~150 1h candles, enough for a converged 1h EMA50.
+    startup_candle_count = 600
 
     params = DEFAULT_PARAMS
+    btc_pair = "BTC/USD"
+    regime_timeframe = "1h"
 
-    # Exit ladder (minutes: profit). Tuned in Task 6; these are starting values.
-    minimal_roi = {"0": 0.10, "120": 0.04, "360": 0.02}
-    stoploss = -0.06
+    # Fee-aware exits (redesign §2). Minutes -> target profit.
+    minimal_roi = {"0": 0.03, "60": 0.02, "180": 0.01}
+    stoploss = -0.04
     trailing_stop = True
-    trailing_stop_positive = 0.02
-    trailing_stop_positive_offset = 0.04
+    trailing_stop_positive = 0.012
+    trailing_stop_positive_offset = 0.02
     trailing_only_offset_is_reached = True
 
-    stagnation_hours = 12  # close flat trades after this long
+    stagnation_hours = 6  # close flat trades after this long
 
     @property
     def protections(self):
@@ -51,11 +70,39 @@ class MemeMomentum(IStrategy):
             },
         ]
 
+    def informative_pairs(self):
+        # BTC is loaded for the regime even though it need not be tradeable.
+        return [(self.btc_pair, self.timeframe)]
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        return add_indicators(dataframe, self.params)
+        dataframe = add_indicators(dataframe, self.params)
+
+        # Regime from BTC: 15m -> 1h -> EMA trend -> merged back without peeking.
+        if self.dp is None:
+            dataframe["regime_ok"] = False
+            return dataframe
+        btc = self.dp.get_pair_dataframe(self.btc_pair, self.timeframe)
+        if btc is None or len(btc) == 0:
+            dataframe["regime_ok"] = False
+            return dataframe
+        btc_1h = resample_1h(btc)
+        btc_1h["regime_ok"] = regime_mask_from_btc(btc_1h, self.params)
+        dataframe = merge_informative_pair(
+            dataframe,
+            btc_1h[["date", "regime_ok"]],
+            self.timeframe,
+            self.regime_timeframe,
+            ffill=True,
+        )
+        dataframe["regime_ok"] = (
+            dataframe["regime_ok_1h"].fillna(False).astype(bool)
+        )
+        return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[entry_mask(dataframe, self.params), "enter_long"] = 1
+        dataframe.loc[
+            entry_mask(dataframe, self.params, dataframe["regime_ok"]), "enter_long"
+        ] = 1
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
