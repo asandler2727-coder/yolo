@@ -1,8 +1,13 @@
 # YOLO — Meme Coin Momentum Bot: Design Spec
 
-**Date:** 2026-07-18
-**Status:** Approved by Austin 2026-07-18
-**Repo:** https://github.com/asandler2727-coder/yolo
+**Date:** 2026-07-18  
+**Status:** Approved by Austin 2026-07-18 · **§5 / §9 amended 2026-07-19 for v2 redesign**  
+**Repo:** https://github.com/asandler2727-coder/yolo  
+
+**v2 redesign brief (authoritative for entry/exit + gate):**  
+`docs/superpowers/specs/2026-07-19-yolo-v2-pullback-redesign.md`  
+If this file and the v2 brief disagree on strategy math, the **v2 brief wins**.  
+§6 risk and §8 security in *this* file still win over everything else.
 
 ## 1. Goal
 
@@ -69,27 +74,37 @@ the broad Kraken USD universe, volume/movement ranking computed from candles per
 backtests aren't biased by today's trending list — a look-ahead trap the implementation must
 explicitly avoid.
 
-## 5. Strategy — `MemeMomentum`
+## 5. Strategy — `MemeMomentum` (v2 — pullback in uptrend)
 
-Timeframe: **15m candles**. Long-only spot momentum:
+**v1 (frozen, do not retune):** long-only 15m “price already up X% + volume spike” chase entry.
+Rejected 2026-07-19 after full-universe Feb–Mar backtests and an independent design critique
+(negative expectancy + fee dominance + regime-blind). Details: `docs/backtests.md`,
+`docs/design-critique-2026-07-19.md`.
 
-- **Entry:** price change over the last N candles exceeds X% AND current volume is running
-  well above its rolling average (volume spike confirms the move is real, not drift). Exact
-  N, X, and volume multiplier are set by backtesting, not chosen by feel.
-- **Exits (three layers, all Freqtrade-native):**
-  1. Hard stop-loss: worst-case per-trade loss in the −5% to −8% range (tuned in backtest).
-  2. Trailing stop: activates once a trade is meaningfully in profit, locks in gains as the
-     pump fades.
-  3. Time-based exit: a trade that goes nowhere for a set number of hours is closed to free
-     the slot.
-- **No other indicators in v1.** Momentum + volume only, so results are attributable.
+**v2 (current):** long-only spot, still class name `MemeMomentum` for config stability.
 
-### Minimum-aggression requirement (hard acceptance criterion)
+| Layer | Rule (defaults in v2 redesign brief) |
+|---|---|
+| Regime | Longs only when BTC is in a 1h uptrend (e.g. close > EMA50 and EMA20 > EMA50). Down-regime → no entries. |
+| Entry TF | **15m** pullback after a recent impulse — **not** buying a completed vertical pump. Anti-chase block on last ~45m rip. Volume must remain alive (not climax-only). |
+| Exits | Fee-aware ROI (start ~3%, not 10%), tighter stop (~−4% or structure/ATR), trailing once green, shorter stagnation timeout (~6h). |
+| Indicators | Regime EMAs + short pullback/impulse geometry + volume. No indicator soup. No sentiment in entry/exit. |
 
-The tuned strategy must produce **≥ 5 trades/week on average in backtest** across the
-scanned universe. Below that bar, it gets retuned before it ever reaches dry-run. During dry-run and
-live operation, **zero trades in any 48h window while markets are open is treated as a fault**
-to investigate the same day, not a curiosity.
+Full parameter names, anti-chase rule, and exit numbers live in  
+`docs/superpowers/specs/2026-07-19-yolo-v2-pullback-redesign.md` §2.
+
+### Minimum-aggression requirement (amended 2026-07-19)
+
+- **Up-regime periods:** tuned strategy must produce **≥ 5 trades/week on average** in backtest
+  over windows where the regime filter allows trading for a material share of bars.
+- **Down-regime periods:** **zero trades is acceptable** and is not a frequency failure
+  (bot is allowed to sit out bears).
+- **Dry-run / live fault rule (refined):** zero trades in any **48h up-regime** window while
+  markets are open is a fault to investigate the same day. Zero trades during a clear
+  down-regime is expected behavior, not a bug.
+
+Profit must still be positive after Kraken taker fees (see §9). Never loosen the profit leg
+to force frequency.
 
 ## 6. Risk guardrails (hard-coded)
 
@@ -130,11 +145,16 @@ exit logic (it is not backtestable and would poison the strategy's testability).
 
 ## 9. Validation gates (time-boxed, explicit)
 
-1. **Backtest gate:** fresh 15m data for the whitelist downloaded (Kraken via trades download,
-   or another US-accessible source with proper 15m spot history — resolved during
-   implementation). Strategy tuned until it meets: ≥5 trades/week, positive expectancy after
-   Kraken Pro API fees (~0.25% maker / 0.40% taker at entry volume tier), max drawdown within
-   tolerance. Results recorded in the repo.
+1. **Backtest gate (amended 2026-07-19):** fresh 15m data for the scanned universe (Kraken
+   OHLCVT / feather pipeline in use). Strategy meets:
+   - **Profit:** positive total profit at `--fee 0.004` (Kraken taker; ~0.8% round-trip).
+   - **Frequency:** ≥5 trades/week **averaged over up-regime periods only**; zero-trade
+     down-regime months do not fail this leg.
+   - **Drawdown:** report max DD; flag for Austin if monthly max DD is catastrophic (~>25%)
+     even when total profit is positive. Protections stay enabled in the harness.
+   - **Process:** v1 sweeps frozen. No multi-knob grid on a new design until a single default
+     set is judged. Apr–Jul data is out-of-sample for **v2 only**, not a second chance for v1.
+   Results recorded in the repo.
    *Note (settled 2026-07-18): Kraken+'s "zero trading fees" perk applies only to instant
    buy/sell/convert in the Kraken app/web and explicitly excludes Spot/API/Kraken Pro trading
    — it does not apply to this bot and is not part of the fee model.*
@@ -157,4 +177,7 @@ exit logic (it is not backtestable and would poison the strategy's testability).
 
 Multi-agent review boards, FreqAI/ML models, vector databases, observability servers,
 strategy zoos, short selling, margin/futures, DEX/on-chain trading, and any autonomous
-increase of stakes or risk limits. If v1 makes money, scope grows one small step at a time.
+increase of stakes or risk limits. Tabled alternative strategy families (range-breakout,
+mean-reversion fade, session scalps) are documented in the v2 redesign brief and are
+**not** in scope until the primary pullback design is judged. If v2 makes money, scope
+grows one small step at a time.

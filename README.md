@@ -1,18 +1,21 @@
 # YOLO — Meme Coin Momentum Bot
 
 An automated trading bot built on [Freqtrade](https://www.freqtrade.io/). It scans the whole
-Kraken USD market for trending, high-volume coins and trades them with a price/volume momentum
-strategy. Austin owns the on/off switch; the code does the trading.
+Kraken USD market for trending, high-volume coins and trades them with a **v2** trend-filtered
+pullback strategy (v1 pump-chase is frozen). Austin owns the on/off switch; the code does the
+trading.
 
-**Status:** design phase — see the spec in `docs/superpowers/specs/`.
+**Status:** v2 redesign specified — implement from
+`docs/superpowers/specs/2026-07-19-yolo-v2-pullback-redesign.md` and the matching plan under
+`docs/superpowers/plans/`.
 
 ## The rules this project lives by
 
 1. Backtest first, then 2 weeks of paper trading (dry-run), then — only on Austin's explicit
    "I am ready to go live" — real money at half stakes.
 2. Hard-coded risk cap: $750 total, max 3 positions of $250, automatic halt at 15% drawdown.
-3. A strategy that doesn't fire at least ~5 trades/week in backtest gets retuned, not deployed.
-   Zero-trade limbo killed the last project; it is an automatic failure condition here.
+3. Frequency gate: ≥5 trades/week **in up-regime periods**; sitting out bears is allowed.
+   Positive profit after ~0.4% taker fees is still required. v1-style churn is not the goal.
 4. Kraken API keys: no withdrawal permissions, never committed to git, rotated before funding.
 5. The circuit breakers (stop-loss guard, max drawdown halt) are never disabled.
 
