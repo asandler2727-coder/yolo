@@ -54,3 +54,36 @@ Takeaways for Task 6 tuning (to revisit on full data):
 - Consider mirroring the live $250k/day volume floor in `rank_pairs_for_month` so backtest
   months can never include pairs the live pairlist would reject (harness currently takes
   top-N with no floor — only matters when few pairs have data).
+
+## Task 6 sweep, Feb–Mar 2026 — 2026-07-19 — ALL VARIATIONS FAIL
+
+One parameter changed per run from the defaults; all at `--fee 0.004`, months 2026-02..03.
+
+| Param | Value | Trades/wk | Profit % | Max DD % | Gate |
+|---|---|---|---|---|---|
+| (baseline) | — | 20.60 | -74.23 | 48.57 | FAIL |
+| momentum_threshold | 0.02 | 26.24 | -78.84 | 49.18 | FAIL |
+| momentum_threshold | 0.04 | 14.84 | -70.28 | 43.29 | FAIL |
+| momentum_threshold | 0.05 | 10.36 | -30.23 | 26.10 | FAIL |
+| volume_mult | 1.5 | 21.17 | -69.17 | 46.84 | FAIL |
+| volume_mult | 3.0 | 17.84 | -67.33 | 38.17 | FAIL |
+| stoploss | -0.05 | 22.21 | -70.57 | 49.74 | FAIL |
+| stoploss | -0.08 | 20.02 | -68.05 | 45.15 | FAIL |
+| roi_0 | 0.06 | 20.60 | -73.59 | 49.54 | FAIL |
+| roi_0 | 0.15 | 20.60 | -72.43 | 46.77 | FAIL |
+
+Market context, same window: BTC -13.9%, ETH -14.6%; the traded top-30 universe median
+-13.9% (8 of 37 pairs positive). The baseline strategy lost ~5x the market; the best
+variation (threshold 0.05) still lost ~2x the market. The only monotone dial is entry
+strictness — stricter → fewer trades → smaller losses — the signature of negative
+per-trade expectancy (chasing 15m pumps and paying 0.8% round-trip fees), not of a
+mis-tuned edge.
+
+**Verdict per spec §9 / plan Task 6 step 3: nothing passes on available data → stop and
+report to Austin. No deployment, gate unchanged.** Combination grid-search on only 2
+months was deliberately not attempted (overfitting risk with Apr–Jul reserved as
+out-of-sample). Decision on next direction is Austin's; leading options: (a) rerun
+baseline+sweep when Apr–Jul lands (regime may differ; note Feb–Mar was a bear window and
+long-only momentum amplified it), (b) revise the strategy design (regime filter,
+non-chasing entries, fee-aware exits) via a spec update before any further tuning,
+(c) independent design critique before more spend.
