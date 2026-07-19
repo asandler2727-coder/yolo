@@ -17,6 +17,10 @@ import pandas as pd
 
 TOP_N = 30
 FEE = 0.004
+# Mirrors the live VolumePairList min_value so the backtest universe can never
+# include a pair the live pairlist would reject as too thin (critique 2026-07-19).
+MIN_DAILY_QUOTE_VOLUME = 250_000
+CANDLES_PER_DAY = 96  # 15m timeframe
 DATA_DIR = Path("user_data/data/kraken")
 RESULTS_DIR = Path("user_data/backtest_results")
 
@@ -31,6 +35,8 @@ def rank_pairs_for_month(data_dir: Path, month_start: pd.Timestamp, top_n: int) 
         if len(prior) < 500:  # needs most of a month of prior candles
             continue
         qv = float((prior["close"] * prior["volume"]).sum())
+        if qv / (len(prior) / CANDLES_PER_DAY) < MIN_DAILY_QUOTE_VOLUME:
+            continue
         pair = f.stem.replace("-15m", "").replace("_", "/")
         volumes[pair] = qv
     return [p for p, _ in sorted(volumes.items(), key=lambda kv: -kv[1])[:top_n]]
@@ -47,7 +53,7 @@ def run_month(month_start: pd.Timestamp, pairs: list[str]) -> dict | None:
         ["docker", "compose", "run", "--rm", "freqtrade", "backtesting",
          "--config", "/freqtrade/user_data/tmp_bt_config.json",
          "--strategy", "MemeMomentum", "--timerange", timerange,
-         "--fee", str(FEE), "--export", "trades"],
+         "--fee", str(FEE), "--enable-protections", "--export", "trades"],
         capture_output=True, text=True,
     )
     if out.returncode != 0:

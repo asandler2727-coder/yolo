@@ -42,10 +42,11 @@ Params: defaults (as above). Run: `rolling_backtest.py 2026-02 2026-03`.
 Total: 179 trades, 20.6 trades/week, -74.23%, gate **FAIL** (profit leg; frequency leg
 passes 4x over).
 
-Open methodology question for the final gate run: the backtest does not currently apply
-the strategy's protections (freqtrade needs `--enable-protections`); live, the 15%
-MaxDrawdown halt would have stopped February long before -48%. Decide before the
-go/no-go verdict whether the gate run should enable them for realism.
+~~Open methodology question~~ RESOLVED 2026-07-19 (independent critique, see
+docs/design-critique-2026-07-19.md): the harness now passes `--enable-protections`
+and `rank_pairs_for_month` enforces the live $250k/day quote-volume floor. All runs
+recorded above predate those fixes, so future runs are not directly comparable —
+rerun the baseline as a control before comparing numbers.
 
 Takeaways for Task 6 tuning (to revisit on full data):
 - Signal frequency is not the problem — 3.7x the 5/week floor even on 13 pairs.
