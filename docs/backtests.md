@@ -536,9 +536,9 @@ universe at this frequency, whatever the signal. If family A is retired, family
 B should either hold materially longer or fire far less often on higher
 conviction — not re-enter the same wall with a different trigger.
 
-**Iterations 2–3 readout — `range_lookback`, both values FAIL, family A's
-pre-registered space is now exhausted.** Per-trade averages recomputed for all
-six cells on the same diagnostic, so the columns are directly comparable:
+**Iterations 2–3 readout — `range_lookback`, both values FAIL.** Per-trade
+averages recomputed for all six cells on the same diagnostic, so the columns are
+directly comparable:
 
 | `range_lookback` | L trades | L profit % | L avg/trade | D trades | D profit % | D avg/trade |
 |---|---|---|---|---|---|---|
@@ -590,10 +590,41 @@ placement candle, and family A uses market fills, so it does not apply here.)
 did not adopt. Budget: **3 of 15 used**, holdout 2025-09→2026-01 still sealed
 and never touched.
 
-**Verdict: family A is dead in dev.** Every pre-registered knob has now been
-tested or measured — exits swept continuously, entry filters scored off the
-recorded population, and the range definition itself run twice on both arms.
-Nothing reaches the gate and nothing trends toward it. The recommendation is
-option (a): retire family A, leave the holdout sealed for the next family, and
-carry the fee arithmetic forward — 0.9% (L) and 1.2% (D) round trip against a
-median 24h peak of +2.7% is the wall any successor inherits.
+**Recommendation: retire family A in dev — but the search space is NOT
+exhausted, and an earlier version of this line said it was.**
+
+*Correction, 2026-07-20, logged rather than quietly edited.* The falsifier block
+for iterations 2–3 above says "if both fail, family A is dead in dev having
+exhausted its pre-registered knobs." That premise was wrong when it was written
+and the first version of this verdict repeated it. Three §3 cells have never
+been tested and **cannot** be tested off the recorded trade population:
+
+| untested cell | baseline | why no run has covered it |
+|---|---|---|
+| `range_max_width` 0.08 | 0.06 | a loosening — admits coils we never traded |
+| `volume_mult` 1.5 | 2.0 | a loosening — admits weaker-volume breakouts |
+| `max_extension` 0.02 | 0.015 | a loosening — admits chases we vetoed |
+
+`entry_quality.py` never claimed otherwise; its docstring names these three as
+UNTESTABLE and reports them as such. The error was in the summary, which
+collapsed "measured every tightening" into "measured every knob." Twelve
+iterations remain in the budget, so the protocol does not force a stop here.
+
+A second, smaller gap: the stagnation timed cuts {4h, 8h, 12h} were scored, but
+outside the replay engine's validated envelope (the config as run had stagnation
+off, and `custom_exit` is modelled on the candle close where freqtrade may use
+the open). They read deeply negative, far enough that the modelling error does
+not flip them, but they are not evidence of the same grade as the rest.
+
+*What the evidence does support.* Every knob that has been tested or validly
+measured fails, and the entry lever runs backwards: each tightening made
+per-trade expectancy **worse**. Read straight, that pattern is at least
+consistent with loosening helping — which argues for spending three iterations
+on the cells above, not for retiring. The case for retiring rests instead on the
+fee arithmetic: 0.9% (L) and 1.2% (D) round trip against a median 24h peak of
++2.7% is a wall no entry-filter setting moves, and loosening a filter admits
+*more* trades into that wall. That is a judgement about where the remaining
+headroom is, not a finding that no headroom exists.
+
+**Status: recommendation pending review, not a settled verdict.** The stopping
+call is Austin's, and it is going to an independent reviewer first.
