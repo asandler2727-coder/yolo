@@ -24,7 +24,10 @@ import pandas as pd
 DATA = Path("user_data/data/kraken")
 DEPTH = 0.02
 TIMEOUT_CANDLES = 16  # 4h of 15m candles
-RTOL = 1e-6
+# Freqtrade rounds the limit to the pair's price precision (tick), so an exact
+# 0.98*open match needs slack of about a tick. 5e-4 relative covers ticks up to
+# ~5bp of price while staying 40x below the 2% depth being asserted.
+RTOL = 5e-4
 
 _cache: dict[str, pd.DataFrame] = {}
 
@@ -56,7 +59,7 @@ def classify(trade: dict) -> tuple[str, float]:
     limit_hits = opens[abs(opens * (1 - DEPTH) - fill_rate)
                        <= RTOL * fill_rate]
     if len(limit_hits):
-        return "limit-fill", DEPTH
+        return "limit-fill", 1 - fill_rate / limit_hits.iloc[-1]
     gap_hits = opens[abs(opens - fill_rate) <= RTOL * fill_rate]
     if len(gap_hits):
         # Filled at a candle open that gapped under an earlier candle's limit.
