@@ -328,8 +328,8 @@ run.
 | 1 | 2026-07-20 | — (spec defaults) | same | D | 720 | −91.80 | 10.37 | 18.5 | 11 | 229 | 12.6 | 10 / 4.8% | FAIL — 18/19 months negative |
 | 2 | 2026-07-20 | `range_lookback` 48→32 | Shorter 8h coil fires more often on fresher structure; expected to LOSE, since coil quality measured backwards | L | 884 | −53.97 | 10.22 | 22.8 | 10 | 91 | 11.2 | 10 / 4.7% | FAIL — 15/19 mo neg; avg trade −0.61% (base −0.90%) |
 | 2 | 2026-07-20 | `range_lookback` 48→32 | same | D | 728 | −96.87 | 9.30 | 18.7 | 11 | 226 | 10.8 | 10 / 4.8% | FAIL — 18/19 mo neg; avg trade −1.33%, WORSE than base |
-| 3 | 2026-07-20 | `range_lookback` 48→96 | Longer 24h base is the strongest pre-registered case: bigger base, fewer and higher-conviction breakouts, and holding longer is the one direction fees favour | L | PENDING | | | | | | | | |
-| 3 | 2026-07-20 | `range_lookback` 48→96 | same | D | PENDING | | | | | | | | |
+| 3 | 2026-07-20 | `range_lookback` 48→96 | Longer 24h base is the strongest pre-registered case: bigger base, fewer and higher-conviction breakouts, and holding longer is the one direction fees favour | L | 689 | −58.01 | 7.82 | 17.7 | 5 | 59 | 13.0 | 10 / 1.6% | FAIL — 17/19 mo neg; avg trade −0.84% (base −0.90%) |
+| 3 | 2026-07-20 | `range_lookback` 48→96 | same | D | 659 | −76.50 | 10.46 | 16.9 | 3 | 200 | 13.2 | 10 / 3.6% | FAIL — 17/19 mo neg; avg trade −1.16% |
 
 **Iterations 2–3 pre-registration (logged 2026-07-20, before either run).**
 Austin chose option (b): spend the last two pre-registered stones on
@@ -535,3 +535,58 @@ realised exit. That headwind is inherited by any family that trades this
 universe at this frequency, whatever the signal. If family A is retired, family
 B should either hold materially longer or fire far less often on higher
 conviction — not re-enter the same wall with a different trigger.
+
+**Iterations 2–3 readout — `range_lookback`, both values FAIL, family A's
+pre-registered space is now exhausted.** Per-trade averages recomputed for all
+six cells on the same diagnostic, so the columns are directly comparable:
+
+| `range_lookback` | L trades | L profit % | L avg/trade | D trades | D profit % | D avg/trade |
+|---|---|---|---|---|---|---|
+| 32 (8h base) | 884 | −53.97 | **−0.61%** | 728 | −96.87 | −1.33% |
+| **48 (12h, frozen)** | 843 | −76.40 | −0.90% | 720 | −91.80 | −1.28% |
+| 96 (24h base) | 689 | −58.01 | −0.84% | 659 | −76.50 | **−1.16%** |
+
+**The arms rank the knob in opposite orders.** Arm L prefers the shortest base
+(32 > 96 > 48); arm D prefers the longest (96 > 48 > 32). A real structural
+effect should point the same way on both universes — the same strategy, the
+same window, differing only in which coins and what fee. Two arms disagreeing
+on the ordering is the signature of noise, and it is the *second* time this
+family has produced it (the stagnation cut split 4h on L against 12h on D).
+The spread across the whole knob is ~0.3pp on either arm, inside the range the
+exit sweep already showed is meaningless here.
+
+**My pre-registered prediction was wrong, in a way worth recording.** I logged
+32 as the weaker value and 96 as the one carrying a live mechanism ("bigger
+base, higher conviction, longer hold suits the fee drag"). Arm L did the
+opposite: the shortest base was its best cell. Arm D leaned the predicted way.
+So the "bigger base" premise gets partial support on one arm, contradiction on
+the other, and no consistent effect overall — which is the same verdict the
+entry-filter test returned from the other direction. Logged as a miss, not
+retrofitted into a story.
+
+**Nothing passes and nothing is close.** The gate is ≥5 trades/up-week AND
+positive summed monthly profit. Frequency passes everywhere (16.9–22.8
+trades/up-week). Profit fails on all six cells; the best is −53.97% summed and
+−0.61%/trade. Per the falsifier fixed in advance, losing less than the baseline
+is **not** a pass and does not earn a fourth iteration.
+
+**Verification, all 76 zips across both iterations.** Anti-chase cap: 1612/1612
+then 1348/1348 fills OK, median fill/cap 0.988–0.989, no violations. Regime
+gating: zero down-regime opens on either run. Veto paths: 21 then 8 vetoed
+fills, median 24h close −2.03% and −0.32%, both negative — the cap is refusing
+bad chases, not blocking movers, so this family does not repeat b′'s
+missed-mover failure from above. (`verify_fill_depth.py` reports every family-A
+fill as UNEXPLAINED; it is a v2 b′ check that limit fills sit 2% below their
+placement candle, and family A uses market fills, so it does not apply here.)
+
+**`range_lookback` is restored to the frozen 48.** Iterations 2–3 measured; they
+did not adopt. Budget: **3 of 15 used**, holdout 2025-09→2026-01 still sealed
+and never touched.
+
+**Verdict: family A is dead in dev.** Every pre-registered knob has now been
+tested or measured — exits swept continuously, entry filters scored off the
+recorded population, and the range definition itself run twice on both arms.
+Nothing reaches the gate and nothing trends toward it. The recommendation is
+option (a): retire family A, leave the holdout sealed for the next family, and
+carry the fee arithmetic forward — 0.9% (L) and 1.2% (D) round trip against a
+median 24h peak of +2.7% is the wall any successor inherits.
