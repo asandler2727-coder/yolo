@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+import logging
+from datetime import timedelta
 
 from pandas import DataFrame
 
@@ -9,28 +10,38 @@ from momentum_signals import (
     DEFAULT_PARAMS,
     add_indicators,
     entry_mask,
-    limit_entry_price,
+    fill_allowed,
     regime_mask_from_btc,
     resample_1h,
+    signal_bar_cap,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class MemeMomentum(IStrategy):
-    """v2 (redesign 2026-07-19): long-only 15m pullback-in-uptrend.
+    """Family A (2026-07-20): long-only 15m range-coil breakout in a BTC
+    up-regime. Spec: docs/superpowers/specs/2026-07-20-yolo-family-a-range-breakout.md.
 
-    Entry = up regime (BTC 1h trend) + prior impulse + pullback into a support
-    band + volume alive + anti-chase, from the pure-pandas momentum_signals
-    module. b' (spec 2026-07-20-yolo-b-prime-limit-entry.md): the entry rests
-    as a limit 2% below the signal-time price with a 4h unfilled timeout
-    (config), buying the measured post-signal shakeout. Exits are fee-aware
-    (~0.8% round-trip taker): a 3%/2%/1% ROI ladder, a -4% hard stop, a tight
-    trailing lock, and a 6h stagnation timeout.
-    Protections implement spec §6 and are never weakened (spec §8.5).
+    Entry = up regime (BTC 1h trend, fail-closed) + tight 12h range + close
+    above the range high on 2x volume, never more than 1.5% above the range
+    high — enforced twice: at the signal (entry_mask) and AT THE FILL
+    (confirm_trade_entry vetoes any fill above the signal bar's frozen
+    entry_cap; a candle can close inside the cap and gap open above it, and
+    buying that gap would be v1 in disguise). Entries are market orders.
 
-    Regime source: BTC/USD is the Kraken pair actually in the dataset. Only 15m
-    BTC data exists, so the 1h regime is resampled from it and merged back with
-    merge_informative_pair (which adds the offset that prevents look-ahead). If
-    BTC data is missing for a window, regime fails closed -> no entries.
+    Exits: -4% stop, late-peak ROI ladder 5/3/1.5%, tight trailing lock after
+    +3%. NO stagnation exit by default (Austin's gate amendment — timed cuts
+    are dev knobs; hold/slot diagnostics are mandatory instead).
+
+    Sizing (Austin's gate amendment): 10% of current total equity per trade,
+    max 10 open; below a pair's minimum -> skip and log.
+
+    Regime source: only 15m BTC/USD data exists, so the 1h regime is
+    resampled from it and merged back with merge_informative_pair (which adds
+    the +45m offset that prevents look-ahead). Missing BTC data -> regime
+    fails closed -> no entries. Protections implement master spec s6 and are
+    never weakened (s8.5).
     """
 
     INTERFACE_VERSION = 3
@@ -44,15 +55,20 @@ class MemeMomentum(IStrategy):
     btc_pair = "BTC/USD"
     regime_timeframe = "1h"
 
-    # Fee-aware exits (redesign §2). Minutes -> target profit.
-    minimal_roi = {"0": 0.03, "60": 0.02, "180": 0.01}
+    # Sizing: fraction of current total equity per trade.
+    stake_fraction = 0.10
+
+    # Exits (spec s3): winners in this market peak late.
+    minimal_roi = {"0": 0.05, "240": 0.03, "480": 0.015}
     stoploss = -0.04
     trailing_stop = True
     trailing_stop_positive = 0.012
-    trailing_stop_positive_offset = 0.02
+    trailing_stop_positive_offset = 0.03
     trailing_only_offset_is_reached = True
 
-    stagnation_hours = 6  # close flat trades after this long
+    # Stagnation exit OFF by default (Austin's gate amendment). Dev knob
+    # values: 4, 8, 12 (hours). None = no timed exit.
+    stagnation_hours = None
 
     @property
     def protections(self):
@@ -110,17 +126,44 @@ class MemeMomentum(IStrategy):
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        return dataframe  # exits handled by ROI/stoploss/trailing/custom_exit
+        return dataframe  # exits handled by ROI/stoploss/trailing (+ dev knob)
 
-    def custom_entry_price(self, pair: str, trade, current_time: datetime,
-                           proposed_rate: float, entry_tag, **kwargs) -> float:
-        # b': rest the entry below the shakeout; unfilledtimeout cancels stale
-        # orders. Needs custom_price_max_distance_ratio > depth in the config,
-        # or freqtrade silently clamps the price (default ratio == our depth).
-        return limit_entry_price(proposed_rate, self.params["entry_limit_depth"])
+    def confirm_trade_entry(self, pair: str, order_type: str, amount: float,
+                            rate: float, time_in_force: str, current_time,
+                            entry_tag, side: str, **kwargs) -> bool:
+        """Anti-chase cap enforced AT THE FILL (spec s3): veto any fill above
+        the SIGNAL bar's frozen entry_cap. Fails closed when the signal bar
+        cannot be found. Every veto is logged for the dev diagnostics."""
+        df, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        cap = None
+        if df is not None and len(df):
+            cap = signal_bar_cap(df, current_time)
+        if not fill_allowed(rate, cap):
+            logger.info(
+                "ENTRY-VETO pair=%s fill=%.10g cap=%s time=%s",
+                pair, rate, "none" if cap is None else f"{cap:.10g}", current_time,
+            )
+            return False
+        return True
 
-    def custom_exit(self, pair: str, trade: Trade, current_time: datetime,
+    def custom_stake_amount(self, pair: str, current_time, current_rate: float,
+                            proposed_stake: float, min_stake, max_stake: float,
+                            leverage: float, entry_tag, side: str,
+                            **kwargs) -> float:
+        """10% of current total equity per trade (spec s3 sizing amendment).
+        Below the pair minimum -> skip the entry (return 0) and log it, so
+        freqtrade never silently bumps a small stake up to the minimum."""
+        stake = self.wallets.get_total_stake_amount() * self.stake_fraction
+        if min_stake is not None and stake < min_stake:
+            logger.info("STAKE-SKIP pair=%s stake=%.2f min=%.2f time=%s",
+                        pair, stake, min_stake, current_time)
+            return 0
+        return min(stake, max_stake)
+
+    def custom_exit(self, pair: str, trade: Trade, current_time,
                     current_rate: float, current_profit: float, **kwargs):
+        if self.stagnation_hours is None:  # default: off (gate amendment)
+            return None
         if (current_time - trade.open_date_utc) > timedelta(hours=self.stagnation_hours) \
                 and current_profit < 0.01:
             return "stagnation_timeout"
