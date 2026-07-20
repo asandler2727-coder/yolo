@@ -70,3 +70,62 @@ def test_pair_below_live_volume_floor_is_excluded(tmp_path):
     _write_feather(tmp_path, "THIN_USD", "2026-06-01", price=1.0, volume=100.0)     # $9.6k/day
     ranked = rank_pairs_for_month(tmp_path, pd.Timestamp("2026-07-01", tz="UTC"), top_n=5)
     assert ranked == ["LIQUID/USD"]
+
+
+# --- family A arm D: rank-slice 31..100 FIRST, then the $100k/day floor -----
+
+from rolling_backtest import ARM_FEES, rank_pairs_downcap_for_month  # noqa: E402
+
+
+def _write_sized_feather(tmp_path, pair, month, price, volume, periods):
+    dates = pd.date_range(month, periods=periods, freq="15min", tz="UTC")
+    df = pd.DataFrame({
+        "date": dates, "open": price, "high": price, "low": price,
+        "close": price, "volume": volume,
+    })
+    df.to_feather(tmp_path / f"{pair}-15m.feather")
+
+
+def test_arm_fees_match_spec():
+    assert ARM_FEES == {"L": 0.0045, "D": 0.006}
+
+
+def test_downcap_excludes_top_30_and_keeps_the_band(tmp_path):
+    # 32 pairs, strictly descending volume, all far above the $100k/day floor.
+    # Ranks 1..30 are excluded; ranks 31..32 are the arm-D universe.
+    for i in range(32):
+        _write_sized_feather(tmp_path, f"P{i:02d}_USD", "2026-06-01",
+                             price=2.0, volume=10000.0 - 100 * i, periods=2000)
+    ranked = rank_pairs_downcap_for_month(tmp_path, pd.Timestamp("2026-07-01", tz="UTC"))
+    assert ranked == ["P30/USD", "P31/USD"]
+
+
+def test_downcap_floor_drops_thin_band_member(tmp_path):
+    # Rank 32's volume sits under $100k/day -> dropped AFTER slicing.
+    for i in range(31):
+        _write_sized_feather(tmp_path, f"P{i:02d}_USD", "2026-06-01",
+                             price=2.0, volume=10000.0 - 100 * i, periods=2000)
+    _write_sized_feather(tmp_path, "THIN_USD", "2026-06-01",
+                         price=1.0, volume=500.0, periods=2000)  # $48k/day
+    ranked = rank_pairs_downcap_for_month(tmp_path, pd.Timestamp("2026-07-01", tz="UTC"))
+    assert ranked == ["P30/USD"]
+
+
+def test_downcap_ranks_full_set_before_floor(tmp_path):
+    # The distinguishing test for the auditor-pinned ORDER of operations:
+    # a sub-floor pair must still OCCUPY its rank slot. PX ranks 5th by total
+    # quote volume but averages under $100k/day (full month of thin days).
+    # Rank-then-floor: 31 ranked pairs -> band = [rank 31] -> [P25].
+    # Floor-then-rank (the bug) would remove PX first, leaving 30 pairs and
+    # an EMPTY band. 2880 candles = all 30 days of June.
+    for i in range(4):   # ranks 1-4: huge volume, 10 trading days
+        _write_sized_feather(tmp_path, f"BIG{i}_USD", "2026-06-01",
+                             price=100.0, volume=50000.0 - 100 * i, periods=960)
+    _write_sized_feather(tmp_path, "PX_USD", "2026-06-01",  # rank 5: qv $2.9M, adv ~$96.7k
+                         price=1.0, volume=2_900_000.0 / 2880, periods=2880)
+    for i in range(26):  # ranks 6-31: 10 days, adv = qv/10 well above floor
+        _write_sized_feather(tmp_path, f"P{i:02d}_USD", "2026-06-01",
+                             price=1.0, volume=(2_800_000.0 - 20_000 * i) / 960,
+                             periods=960)
+    ranked = rank_pairs_downcap_for_month(tmp_path, pd.Timestamp("2026-07-01", tz="UTC"))
+    assert ranked == ["P25/USD"]  # the lowest-qv pair = rank 31, adv ~$254k/day
