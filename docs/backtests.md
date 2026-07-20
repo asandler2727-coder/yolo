@@ -189,3 +189,12 @@ deploy, protections intact. Direction is Austin's call — (a) judge v2 on the c
 record, (b) one conceptual design change via spec update (exit asymmetry is the replicated
 culprit: capped +3% winners cannot pay for −4% losers plus 0.8% fees at a ~55% win rate),
 or (c) table v2 and open the next tabled family.
+
+**Follow-up (2026-07-20, after Austin chose (b)):** the exit-asymmetry premise was
+tested against the recorded trade paths before implementation and **refuted** — no
+mechanical exit family (trails, ladders, scale-outs, flat ROI) clears zero on these
+entries; the loss lives in entry timing vs the post-entry shakeout, not in the exit cap.
+Full analysis + independent research-auditor review (verdict: refutation endorsed):
+`docs/exit-path-analysis-2026-07-20.md`. The (b) spec update was withdrawn; the
+data-supported alternative (b′ = limit-entry deeper in the pullback, ~+2pp in-sample
+upper bound) awaits Austin's direction.
