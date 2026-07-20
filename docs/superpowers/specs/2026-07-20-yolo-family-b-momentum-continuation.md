@@ -1,8 +1,9 @@
 # YOLO family B — momentum continuation above structure, two universe arms
 
 **Date:** 2026-07-20
-**Status:** DRAFT v1 — not yet audited, awaiting research-auditor pass and then
-Austin's spec-review gate. **No code, no signal work, no runs before his approval.**
+**Status:** DRAFT v2 — audited (research-auditor/opus 2026-07-20, verdict REVIEW) and
+revised per all seven findings (§9). Awaiting Austin's spec-review gate.
+**No code, no signal work, no runs before his approval.**
 **Opens:** family A retired 2026-07-20 after 3 of 15 dev iterations — every cell
 decisively negative, gross expectancy ≈ 0 on both arms (`docs/family-a-post-mortem.md`).
 **Still governs:** master spec §6 risk guardrails and §8 security rules; v2 brief regime
@@ -34,11 +35,23 @@ replay showed winners peak late (median ~14h, 73% of ≥4% movers after 6h), bar
 on the way (median drawdown −0.71% before the 24h peak), and reward extension rather
 than anticipation.
 
-Honesty about the evidence: the seed observation is 135 in-sample trades from a
-retired family, and the program has now falsified four short-horizon long designs on
-this market (v1 chase, v2 pullback, b′ limit, A breakout), all at roughly zero gross
-edge. The prior is against family B too. That is exactly what phase 0 is for: if the
-gross edge is not there, this family dies before costing anything.
+Honesty about the evidence (sharpened by the audit, §9):
+
+- The seed is 135 in-sample trades from a retired family, and the program has now
+  falsified four short-horizon long designs on this market (v1 chase, v2 pullback,
+  b′ limit, A breakout), all at roughly zero gross edge. The prior is against
+  family B too.
+- The seed's gradient was measured only up to 1.5% extension. The default band runs
+  to 4% and the grid to 6% — everything past 1.5% is **untested extrapolation being
+  tested, not evidence being cited**. Phase 0 publishes the per-band gradient so the
+  baseline lands where the data is.
+- The seed's −0.25% net (+0.65% gross) is what family A's *exits* realized at a
+  ~12h hold. The fixed-horizon forward return for this band has **never been
+  measured**. The core bet of this family — that a multi-day horizon lifts that
+  unmeasured number over the ~1% hurdle — is exactly what phase 0 tests.
+- Phase 0 runs on the same dev window that produced the seed, so a phase-0 pass is
+  **in-sample to the seed and confirms nothing** — it only earns the right to spend
+  iterations. The sole out-of-sample test of the premise is the sealed holdout.
 
 **How this differs from v1 (which chased and died):** v1 bought "already up 3%" with
 no structural reference, unbounded extension, and short-horizon exits that sold into
@@ -72,11 +85,20 @@ and unit tests must assert signal close AND fill rate against the frozen referen
 One new bound: a fill below the *lower* band is accepted (paying less than
 pre-registered is fine; only paying more is the v1 trap).
 
-**Exits (starting) — multi-day, sized to the fee hurdle:**
+**Exits — PROVISIONAL PLACEHOLDERS, not evidence-sized (audit finding 4).** The
+numbers below were first drafted off family A's path statistics (winners barely dip,
+peaks p50 +2.7% / p75 +5.9%, peak ~14h). Those stats describe family A's coil-breakout
+population, **not** family B's confirmed-escape entries — sizing B's exits from them
+repeats the borrowed-population trap family A's own audit flagged. They are also
+internally inconsistent with the stats they borrowed (a +5% trailing offset sits at
+A's p75 peak, so most winners would never arm it). Therefore: **exit defaults are
+finalized by spec amendment from phase 0's measured path distribution of family B's
+own entries** (peak size, peak timing, pre-peak drawdown — §5), before iteration 1.
+Family A's path numbers must not be cited for family B's exits again.
 
-| Layer | Default |
+| Layer | Placeholder (pending phase-0 path data) |
 |---|---|
-| Hard stop | −3% (`stoploss=-0.03`) — family A measured tighter-is-less-bad and winners that barely dip; grid {−2%, −3%, −4%} |
+| Hard stop | −3%; grid {−2%, −3%, −4%} |
 | ROI ladder | `{0: 0.10, 1440: 0.05, 2880: 0.025}` (24h/48h rungs) — the target must dwarf the ~1% cost |
 | Trailing | +2% trail after +5% offset |
 | Stagnation | Off by default; {24h, 48h} are dev knobs. Multi-day holds park slots — median/max hold and slot occupancy diagnostics stay mandatory every run. |
@@ -111,7 +133,7 @@ market orders, `rank_pairs_for_month` remains the single source of truth.
 
 | Phase | Window | Rules |
 |---|---|---|
-| **Phase 0 — gross-edge kill gate** | 2024-02 → 2025-08 (dev) | Entry-only replay of the §3 entry grid using the validated `scripts/path_analysis` engine — no exits, no backtests, no iteration spent. For every entry-grid cell (both arms): mean **gross** forward return at pre-registered horizons {24h, 48h, 96h} with bootstrap 95% intervals, plus trades per up-regime week. **Kill bar:** unless at least one cell has, on at least one arm and one horizon, mean gross return > the arm's round trip AND a bootstrap 95% lower bound > 0, family B dies here at zero iterations and the holdout stays sealed for the next family. **Selection rule, disclosed in advance:** if the bar is passed, the best qualifying cell becomes the iteration-1 baseline — one selection event, bounded by the pre-registered grid, reported in full (every cell published, not just the winner). |
+| **Phase 0 — gross-edge kill gate** | 2024-02 → 2025-08 (dev) | Entry-only replay of the pre-registered cell list below using the validated `scripts/path_analysis` engine — no exits, no backtests, no iteration spent. **Cell list, fixed now (audit finding 2):** the full cross of the four §3 entry grids, 3×3×3×3 = **81 cells** (cells where `min_extension` ≥ `max_extension` are dropped as ill-formed), × 2 arms × 3 horizons {24h, 48h, 96h}. **Forward-return definition, fixed now (audit finding 1d):** gross return measured **from the modeled fill** — next 15m candle's open after the signal bar, the same +45m-consistent convention as the backtests — never from the signal close; entries whose modeled fill violates the §3 band are excluded exactly as `confirm_trade_entry` would veto them. Published for every cell and arm: mean gross forward return per horizon, per-band gradient, trades per up-regime week (labeled as an **unconstrained upper bound** — no slots, no exits), and the path distribution of family B's own entries (peak size, peak timing, pre-peak drawdown) which sizes the §3 exits by amendment. **Kill bar (selection-aware, audit finding 1):** the winning cell is whatever maximizes mean gross forward return; family B lives only if that selected cell's **max-statistic bootstrap 95% lower bound clears the arm's full round trip** (0.9% L / 1.2% D) — where each bootstrap resample re-runs the entire cell/arm/horizon selection, so the bound prices in the ~486-way look. A raw point estimate above the round trip with an unadjusted interval is a FAIL. Anything less, family B dies at zero iterations and the holdout stays sealed for the next family. **Selection rule, disclosed in advance:** if the bar is passed, that selected cell becomes the iteration-1 baseline — one selection event, bounded by the pre-registered grid, reported in full (every cell published, not just the winner). A phase-0 pass is in-sample to the seed (§2) and confirms nothing. |
 | **Develop** | 2024-02 → 2025-08 | §3 knob discipline, hard budget 10 iterations, both arms every run, logged before each run. No positive config within budget → family dies, holdout stays sealed. |
 | **Freeze** | — | One config, written into this spec by amendment; per-arm proceed rule as in family A. |
 | **Holdout — sealed kill test #1** | 2025-09 → 2026-01 | **Inherited intact from family A — never opened.** One run per arm, frozen config, §6 bar. Any post-peek change burns it permanently. |
@@ -128,12 +150,22 @@ Unchanged in shape from family A: positive total profit at the arm's fee AND
 bootstrap 95% lower bound on mean per-trade net > 0; frequency ≥5 trades/week
 averaged over up-regime periods; report max monthly drawdown, flag any month >25%.
 
-**Open question for Austin at the gate (decide before phase 0 runs, not after):**
-a 1–4% band above a 24h high fires less often than family A's at-the-edge trigger,
-and multi-day holds occupy slots longer. If B cannot make 5 trades/up-week, is that a
-kill (recommended — fee-clearing families that trade rarely are hard to distinguish
-from luck in a 5-month holdout) or does the bar get re-set now, in writing, with the
-holdout still sealed? Phase 0 reports the frequency number per cell either way.
+**Frequency bar — decision for Austin at the gate (before phase 0 runs, not after).**
+A 1–4% band above a 24h high fires less often than family A's at-the-edge trigger,
+and multi-day holds occupy slots longer. The audit's recommendation, adopted here as
+this spec's recommendation too: **keep ≥5 trades/up-week as a hard kill.** The power
+arithmetic says why: the holdout has ~8 up-regime weeks, so 5 trades/up-week yields
+roughly 40 trades, and with per-trade spread near family A's (σ ≈ 3.5%, an assumption
+from a different population, disclosed as such) a 95% lower bound over ~40 trades can
+only clear zero if the realized net edge is about **1.1% per trade or better**. Any
+*lower* frequency bar demands an even larger per-trade edge to be judgeable at all —
+re-setting the bar downward would make the holdout weaker, not more lenient. Two
+interpretation rules, fixed now: phase-0 frequency numbers are unconstrained upper
+bounds (no slots, no exits) and may not be used to argue the bar is met; on the
+holdout, a frequency shortfall that the slot-occupancy diagnostic attributes to full
+slots (mechanical starvation) is reported to Austin as such rather than silently
+counted as signal scarcity — the kill still stands unless he rules otherwise on the
+disclosed evidence.
 
 ## 7. Traps carried forward (do not re-learn these)
 
@@ -153,6 +185,43 @@ All of family A §7, plus its post-mortem additions:
 
 ## 8. Definition of done for this document
 
-research-auditor pass → Austin reviews and approves → implementation plan → TDD build
-→ phase 0 → (only if the kill bar is passed) dev phase. Until his approval: **no
-strategy code, no harness changes, no runs.** This spec ends at his gate. STOP.
+Austin reviews and approves this spec (the audit has run — §9) → implementation plan
+→ TDD build → phase 0 → (only if the kill bar is passed) dev phase. Until his
+approval: **no strategy code, no harness changes, no runs.** This spec ends at his
+gate. STOP.
+
+## 9. Audit record
+
+research-auditor (opus), 2026-07-20, verdict **REVIEW** on draft v1. All seven
+findings addressed in this revision:
+
+1. **(HIGH)** Phase-0 kill bar tested the best of ~486 cell/arm/horizon looks against
+   an unadjusted per-cell bound — selection-inflated, near-vacuous second leg → gate
+   rewritten: the selected cell's **max-statistic bootstrap** 95% lower bound (each
+   resample re-runs the whole selection) must clear the arm's full round trip (§5).
+2. **(MED)** Phase-0 cell count was undefined → fixed at the full 81-cell cross, with
+   ill-formed band combinations dropped, cell list pre-registered (§5).
+3. **(MED)** Phase 0 runs on the window that produced the seed → stated explicitly in
+   §2 and §5: a phase-0 pass is in-sample to the seed and confirms nothing; only the
+   sealed holdout is out-of-sample.
+4. **(HIGH)** Exit defaults were sized from family A's path statistics — a foreign
+   trade population, the exact trap A's own audit flagged — and were internally
+   inconsistent with them (trailing armed at A's p75 peak) → exits demoted to
+   provisional placeholders; final defaults come by amendment from phase 0's measured
+   path distribution of family B's own entries (§3, §5).
+5. **(MED)** The 1.5–6% extension range is 3–4× past the seed's measured band, and
+   the seed's +0.65% gross is an exit-realized number, not a forward return → both
+   stated as the untested core bet in §2; phase 0 publishes the per-band gradient.
+6. **(MED)** The ≥5 trades/up-week question needed a power-derived answer → §6 now
+   recommends keeping the bar as a hard kill with the holdout power arithmetic shown
+   (~40 trades needs ≈1.1%/trade to be judgeable; a lower bar is weaker, not kinder),
+   plus two fixed interpretation rules (phase-0 frequency is an upper bound; slot
+   starvation is disclosed, not conflated with signal scarcity).
+7. **(LOW)** Total search (~486 phase-0 looks + 10 iterations) is wider than "10
+   iterations" reads → disclosure judged adequate; retained, with the multiplicity
+   now priced into the gate by finding 1.
+
+The audit confirmed: the entry design is not v1 in disguise (structure reference,
+bounded band, volume confirmation, multi-day horizon are genuine differences); the
+inherited seal and discipline rules are intact; the baseline-selection event is
+disclosed, not hidden.
