@@ -546,14 +546,21 @@ six cells on the same diagnostic, so the columns are directly comparable:
 | **48 (12h, frozen)** | 843 | −76.40 | −0.90% | 720 | −91.80 | −1.28% |
 | 96 (24h base) | 689 | −58.01 | −0.84% | 659 | −76.50 | **−1.16%** |
 
-**The arms rank the knob in opposite orders.** Arm L prefers the shortest base
-(32 > 96 > 48); arm D prefers the longest (96 > 48 > 32). A real structural
-effect should point the same way on both universes — the same strategy, the
-same window, differing only in which coins and what fee. Two arms disagreeing
-on the ordering is the signature of noise, and it is the *second* time this
-family has produced it (the stagnation cut split 4h on L against 12h on D).
-The spread across the whole knob is ~0.3pp on either arm, inside the range the
-exit sweep already showed is meaningless here.
+**The knob moves trade count, not edge.** Lookback produced the largest
+*summed* response of any lever tried on this family — arm L went −76.40% →
+−53.97%, a 22-point swing. But per-trade expectancy barely moved: the whole
+knob spans **0.29pp on arm L and 0.17pp on arm D**. The 22 points came from
+firing 884 times instead of 843 at a slightly less bad average, not from
+finding an edge. That distinction matters, because only expectancy compounds
+into a passing gate.
+
+**And the arms disagree about which value is best.** Arm L ranks 32 > 96 > 48;
+arm D ranks 96 > 48 > 32. They are not exact reverses, but the sharp version is
+enough: **arm L's best value is arm D's worst.** A real structural effect should
+point the same way on both universes — same strategy, same window, differing
+only in which coins and what fee. This is the *second* time family A has done
+this (the stagnation cut split 4h on L against 12h on D), and both times the
+knob turned out dead.
 
 **My pre-registered prediction was wrong, in a way worth recording.** I logged
 32 as the weaker value and 96 as the one carrying a live mechanism ("bigger
