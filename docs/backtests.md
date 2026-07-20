@@ -351,3 +351,85 @@ The losses are genuine in-regime negative expectancy, not a leak.
 - **STAKE-SKIP 99 (L) / 229 (D):** today's Kraken minimum order sizes applied
   at 2024–25 prices skip ~10–24% of would-be entries — conservative artifact,
   noted above the table.
+
+## Family A path diagnostic — 2026-07-20 — NO ITERATION SPENT
+
+Between iteration 1 and any iteration 2, the question was which knob to spend
+the budget on. Iteration 1 lost −0.90%/trade with a 58% win rate: capped
+winners (+1.97%) against full losers (−4.82%). Two causes fit that shape and
+they point at opposite knobs — worthless **entries**, or **exits** that cap
+live moves. Trade records cannot separate them, because `max_rate` is censored
+at exit time (the lesson that invalidated the first v2 exit analysis,
+`docs/exit-path-analysis-2026-07-20.md` §1).
+
+So both were measured against raw candles instead of guessed at:
+`scripts/path_analysis/replay_family_a.py` and `entry_quality.py`; full output
+in `docs/diagnostics/2026-07-20-family-a-*.txt`. **No knob was changed and no
+config was graded — the 15-iteration budget still stands at 1 used, 14 left.**
+
+**Trustworthiness first.** Trade selection is structural, not by filename: dev
+window by timerange, arm by config whitelist size (L = top 30, D = ranks
+31–100), latest run per month, then the per-month counts must match
+`rolling_summary_{L,D}.json` exactly — 1563 trades, 843/720, 38 zips, exact
+match. The replay engine reconstructs the config as run and reproduces the
+recorded per-trade profit to **mean |error| 0.083%/trade** (p95 0.35%, 1492
+comparable trades) against a 0.10% gate; it exits 1 below that, so the
+counterfactuals are only ever read after the engine has earned it. Pinning
+freqtrade's within-candle order took the crosstab against 1563 recorded exits:
+the trailing stop ratchets off the candle high *before* the low is tested, and
+ROI beats a ratcheted trailing stop but loses to a hard stop.
+
+**Holdout seal held, and the guard earned its place.** Windows are truncated at
+2025-09-01 and an assertion fails the run if any candle at or after it is read.
+It fired on the first pass: `.loc[a:b]` is inclusive, so 65 windows were
+pulling in the 00:00 candle on seal day — the first holdout bar. Fixed; the
+run is now clean, with 65 trades (4.2%) flagged as seal-truncated and excluded
+from the comparisons rather than silently averaged in.
+
+**What the entries actually offered (uncensored, 1498 untruncated trades).**
+Gross peak within 24h: p50 **+2.7%**, p75 +5.9%, p90 +9.7%; 46% peak ≥+3%.
+Within 48h: p50 +3.9%, 58% ≥+3%. Median time-to-peak 10.1h (17.0h among the
+545 that peaked ≥+4%), median dip before the peak only −0.71%, and just 9% of
+those movers hit the −4% stop before paying. The moves are real: the
+perfect-exit ceiling is **+3.39%/trade** (arm L, 24h). That ceiling is not
+evidence of an edge — only a negative one would have been decisive — it just
+rules out "there was never anything to catch."
+
+**The exit lever is spent.** All 24 pre-registered exit variants (ROI
+{default, wider, tighter} × trailing {on, off} × stop {−4%, −5%}) lose money on
+both arms. Best is `roi=wider trail=off stop=−4%` at −0.83%/trade on L (−1.07%
+on D) against the −0.97% as-run. Adding Austin's stagnation cut {4, 8, 12h}
+gives the single best cell anywhere in the grid — `roi=wider stagnation=4h`,
+**−0.75%/trade on L** — and the arms disagree on which cut wins (4h for L, 12h
+for D), so even that would need a per-arm fork, a scope change. **The whole
+grid spans ~0.4pp against a ~0.85pp gap to breakeven.** Tellingly, the
+stagnation cuts reshape the trade completely — win rate falls 57%→28%, average
+loss shrinks −4.86%→−1.84% — and the net barely moves. The loss is diffuse, not
+parked in one fixable place.
+
+**The entry lever is worse than spent — it runs backwards.** Tightening a
+filter keeps a subset of trades already taken, so each pre-registered
+tightening was measured directly off the recorded population. Every one makes
+it worse: `range_max_width ≤0.04` −0.98%/trade (vs −0.94% pooled baseline),
+`volume_mult ≥3.0` −0.98%, `max_extension ≤0.010` −1.01%, all three at once
+−1.16%. The premise fails on its own terms: tighter coils produced **smaller**
+subsequent moves (mean 24h peak +4.31% → +3.73%), and the volume filter was
+barely binding to begin with (median signal already 3.9× its 48-bar mean;
+median breakout only 0.3% above the range high, against a 1.5% cap). A quality
+filter that degrades quality as you tighten it is not measuring quality.
+
+**Verdict.** Every lever the spec pre-registered and this data can test is
+negative, and the best cell in the entire space is −0.75%/trade on the better
+arm. One pre-registered knob remains genuinely untestable this way —
+`range_lookback` {32, 96}, which redefines the range rather than filtering it,
+so it needs real runs. Loosening (width 0.08, volume 1.5×, extension 2%) is
+also untestable off this data; the gradient formally points that way, but the
+end of that road is "buy any breakout in an up-regime," the v1 chase the spec
+forbids by name.
+
+Recorded honestly for the freeze decision: any exit or entry shape chosen off
+these tables is **more fitted than a blind grid pick**, and would owe the
+sealed holdout a correspondingly higher bar. Limits that apply to every number
+above: slot contention is ignored (occupancy was 1.1–1.3 of 10, so small, not
+zero), month-boundary force-exits are dropped (7 trades), and all of it is
+in-sample on the dev window.

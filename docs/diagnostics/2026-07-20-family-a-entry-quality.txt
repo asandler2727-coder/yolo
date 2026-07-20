@@ -1,0 +1,21 @@
+Family A dev entries: 1563 (L=843, D=720)
+Exit held fixed at the best cross-arm in-grid config: ROI wider, trailing off, stop -4%.
+
+Signal-bar feature spread (what the defaults actually admitted):
+  range width              p10=0.018  p25=0.024  p50=0.035  p75=0.046  p90=0.054
+  volume / 48-bar mean     p10=2.249  p25=2.724  p50=3.937  p75=6.795  p90=11.889
+  close above range high   p10=0.001  p25=0.002  p50=0.003  p75=0.006  p90=0.009
+
+  filter                       trades     kept   /trade   win%     avgW     avgL  24h peak
+  ------------------------------------------------------------------------------------
+  (none — current defaults)     1563 (100.0%)   -0.94%    52%   +2.85%   -5.01%   +4.31%
+  range_max_width <= 0.04        952 (60.9%)   -0.98%    53%   +2.63%   -5.01%   +3.73%
+  volume_mult >= 3.0            1058 (67.7%)   -0.98%    51%   +2.85%   -5.01%   +4.36%
+  max_extension <= 0.010        1428 (91.4%)   -1.01%    51%   +2.80%   -5.01%   +4.11%
+  ALL THREE at once              622 (39.8%)   -1.16%    51%   +2.55%   -5.01%   +3.58%
+
+Not testable this way (need a real run if pursued):
+  - range_lookback 32 / 96 (changes the range, not a filter)
+  - range_max_width 0.08, volume_mult 1.5, max_extension 0.02 (loosening admits entries never taken)
+
+Slot contention ignored; in-sample on the dev window.
