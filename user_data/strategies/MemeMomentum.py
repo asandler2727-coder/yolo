@@ -9,6 +9,7 @@ from momentum_signals import (
     DEFAULT_PARAMS,
     add_indicators,
     entry_mask,
+    limit_entry_price,
     regime_mask_from_btc,
     resample_1h,
 )
@@ -19,8 +20,11 @@ class MemeMomentum(IStrategy):
 
     Entry = up regime (BTC 1h trend) + prior impulse + pullback into a support
     band + volume alive + anti-chase, from the pure-pandas momentum_signals
-    module. Exits are fee-aware (~0.8% round-trip taker): a 3%/2%/1% ROI ladder,
-    a -4% hard stop, a tight trailing lock, and a 6h stagnation timeout.
+    module. b' (spec 2026-07-20-yolo-b-prime-limit-entry.md): the entry rests
+    as a limit 2% below the signal-time price with a 4h unfilled timeout
+    (config), buying the measured post-signal shakeout. Exits are fee-aware
+    (~0.8% round-trip taker): a 3%/2%/1% ROI ladder, a -4% hard stop, a tight
+    trailing lock, and a 6h stagnation timeout.
     Protections implement spec §6 and are never weakened (spec §8.5).
 
     Regime source: BTC/USD is the Kraken pair actually in the dataset. Only 15m
@@ -107,6 +111,13 @@ class MemeMomentum(IStrategy):
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         return dataframe  # exits handled by ROI/stoploss/trailing/custom_exit
+
+    def custom_entry_price(self, pair: str, trade, current_time: datetime,
+                           proposed_rate: float, entry_tag, **kwargs) -> float:
+        # b': rest the entry below the shakeout; unfilledtimeout cancels stale
+        # orders. Needs custom_price_max_distance_ratio > depth in the config,
+        # or freqtrade silently clamps the price (default ratio == our depth).
+        return limit_entry_price(proposed_rate, self.params["entry_limit_depth"])
 
     def custom_exit(self, pair: str, trade: Trade, current_time: datetime,
                     current_rate: float, current_profit: float, **kwargs):

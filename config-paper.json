@@ -11,7 +11,8 @@
     "fiat_display_currency": "USD",
     "trading_mode": "spot",
     "cancel_open_orders_on_exit": false,
-    "unfilledtimeout": {"entry": 10, "exit": 10, "unit": "minutes"},
+    "unfilledtimeout": {"entry": 240, "exit": 10, "unit": "minutes"},
+    "custom_price_max_distance_ratio": 0.05,
     "entry_pricing": {
         "price_side": "same",
         "use_order_book": true,
