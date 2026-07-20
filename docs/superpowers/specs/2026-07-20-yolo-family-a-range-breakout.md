@@ -90,7 +90,7 @@ stands: no resting limits below the signal, no retest-limit variant in v1 of thi
 | Hard stop | −4% (`stoploss=-0.04`); structural stop at range low capped −5% is on the knob list |
 | ROI ladder | `{0: 0.05, 240: 0.03, 480: 0.015}` — wider than v2's; winners here peak late |
 | Trailing | +1.2% trail after +3% offset |
-| Stagnation | Exit if profit <+1% after **8h** (32 candles). Audit note: the replay evidence says winners peak late (median ~14h; 73% of ≥4% movers after 6h) and v2's 6h cut fed its loss mechanism — the "breakouts work fast" hunch is unproven and does not get to set a tight default. 4h/12h/off are dev knobs. |
+| Stagnation | **Off by default** (Austin's gate amendment, 2026-07-20: post-entry consolidation before continuation is his pre-registered hypothesis, and the replay evidence leans his way — winners peak late, median ~14h, 73% of ≥4% movers after 6h; v2's 6h cut fed its loss mechanism). Timed cuts {4h, 8h, 12h} stay dev knobs. Cost to measure, not assume: with no time cut, a flat trade can park a $250 slot for days (nothing exits between −4% and +1.5% after the ROI tail) — dev diagnostics must log median/max hold and slot occupancy. |
 
 **Protections/bankroll (hard, unchanged):** CooldownPeriod, StoplossGuard, MaxDrawdown;
 $750 total / 3×$250; `--enable-protections` in every run.
@@ -104,9 +104,8 @@ $750 total / 3×$250; `--enable-protections` in every run.
   (`range_lookback`, `range_max_width`).
 - Pre-registered candidate values: `range_lookback` {32, 48, 96}; `range_max_width`
   {0.04, 0.06, 0.08}; `volume_mult` {1.5, 2.0, 3.0}; `max_extension` {0.01, 0.015, 0.02};
-  stagnation {4h, 8h, 12h, off} (the "off" option exists because the cited median peak
-  is ~14h — beyond every timed value; auditor pin); stop {−4% fixed, structural
-  range-low capped −5%}; ROI shape
+  stagnation {off (default per Austin's gate amendment), 4h, 8h, 12h}; stop {−4% fixed,
+  structural range-low capped −5%}; ROI shape
   {default, wider `{0:0.07, 360:0.04, 720:0.02}`, tighter `{0:0.03, 120:0.02, 360:0.01}`};
   trailing {default, off}. Any value outside these sets needs a recorded reason.
 - **Hard budget: 15 dev iterations total** (one iteration = both arms over the full dev
@@ -244,3 +243,24 @@ proceed rule; add stagnation "off" to the grid; log fill-veto diagnostics in dev
 this spec text the same day (none were gate-blockers). The auditor's standing caveat
 for later readouts: a holdout fail under the strict §6 bar means "no edge clearing a
 strict bar on a survivor-flattered window," not proof no edge exists.
+
+**Austin's gate amendments (2026-07-20, spec-review round 1):** stagnation exit flipped
+from 8h-default to **off-default** (his hypothesis: post-entry consolidation precedes
+continuation; consistent with the late-peak evidence, and "off" was already in the
+auditor-approved grid, so no re-audit) with hold/slot-occupancy diagnostics made
+mandatory in dev. Shorts were raised and **tabled with prerequisites** (§10) — not
+added to family A.
+
+## 10. Shorts (raised at Austin's gate 2026-07-20 — tabled)
+
+"Catch both sides" is recorded, not built. Blockers, in order: Kraken **spot cannot
+short** — shorting means Kraken margin or Kraken Futures, and Kraken is not on
+freqtrade's officially supported futures list at our version (needs a feasibility check
+if reopened); every candle on disk is spot — a shorts backtest needs futures prices and
+funding-rate history we do not have; short losses on thin memecoins are uncapped in the
+one asset class famous for 50%+ single-day pumps, which changes the approved $750 risk
+posture; and the v2 brief §6 lists shorting as an explicit non-goal, so reopening it is
+its own decision, not a family-A rider. Prerequisites to reopen: (1) family A's long
+side reaches a verdict; (2) venue + data feasibility verified; (3) Austin explicitly
+reopens the non-goal accepting the changed risk class. Until then the regime filter is
+the both-sides mechanism: it sits out bears instead of paying to trade them.
