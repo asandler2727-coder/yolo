@@ -467,12 +467,22 @@ does, in full generality (roi=wider, trailing off, per-trade net):
 | arm L | −0.68% | −0.66% | −0.66% | −0.72% | −0.83% | −0.99% | −0.98% | −1.06% | −0.60% |
 | arm D | −0.88% | −0.96% | −0.99% | −0.98% | −1.07% | −1.00% | −1.06% | −1.21% | −0.35% |
 
-The curve is **flat and negative everywhere**. Across a 5× range of stop depth
-the whole span is ~0.4pp on either arm and never comes within 0.65pp of
-breakeven. The no-stop column is the sharpest reading of all: holding to a 720h
-horizon wins **87–89%** of the time and *still* loses money, which says the
-damage is in a tail no stop placement can dodge. (That column is horizon- and
-seal-sensitive, so treat it as a direction, not a number.)
+Negative at every depth, and the best *stopped* cell anywhere — in-spec or out
+— is −0.66% (L) / −0.88% (D). Across a 5× range of stop depth the whole span is
+~0.4pp on either arm.
+
+The shape matters more than the level. **Tighter is less bad on both arms**
+(L best at −2%, D at −1.5%), and the −4% we actually run sits in the worse
+half, close to the pessimal depth. That is the fingerprint of entries with no
+edge to protect: there is nothing worth giving room to, so you lose least by
+minimising exposure. It converges with "entry tightening runs backwards" from
+the opposite direction — two independent reads landing on the same conclusion,
+that there is no exploitable edge here to harvest.
+
+The no-stop column (−0.60% / −0.35%, winning 87–89%) is **not** a viable cell:
+it holds up to 720h waiting on a +2% rung and is horizon- and seal-sensitive.
+Read it only as confirmation that the damage sits in a tail no stop placement
+can dodge.
 
 **This is what earns the verdict.** "The exit lever is spent" is now measured
 rather than assumed: ROI shape × trailing × stop depth swept continuously, and
@@ -488,3 +498,11 @@ the open. Those cells are deeply negative, so plausible modelling error does not
 flip them, but they should not have been reported under the blanket
 "engine validated" claim. The structural-stop and depth rows above do not have
 this problem.
+
+**Forward note for family B, not a family A finding.** Round-trip fees are
+**0.9%** (arm L) and **1.2%** (arm D) against a median uncensored 24h peak of
+**+2.7%**. Fees eat a third of the best case on the better arm and more of any
+realised exit. That headwind is inherited by any family that trades this
+universe at this frequency, whatever the signal. If family A is retired, family
+B should either hold materially longer or fire far less often on higher
+conviction — not re-enter the same wall with a different trigger.
