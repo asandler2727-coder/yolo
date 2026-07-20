@@ -41,6 +41,19 @@ def test_slot_occupancy_overlapping_trades():
     assert occ["frac_time_full"] == pytest.approx(1 / 3)
 
 
+def test_slot_occupancy_close_and_open_on_same_candle_do_not_stack():
+    # Freqtrade processes exits before entries within a candle: a trade
+    # closing at 01:00 frees its slot for one opening at 01:00. Counting the
+    # open first would report phantom concurrency above max_open_trades.
+    trades = [
+        _trade("2024-11-01 00:00:00+00:00", "2024-11-01 01:00:00+00:00", 60),
+        _trade("2024-11-01 01:00:00+00:00", "2024-11-01 02:00:00+00:00", 60),
+    ]
+    occ = slot_occupancy(trades, max_slots=2)
+    assert occ["max_concurrent"] == 1
+    assert occ["frac_time_full"] == 0.0
+
+
 def test_slot_occupancy_disjoint_trades_never_full():
     trades = [
         _trade("2024-11-01 00:00:00+00:00", "2024-11-01 01:00:00+00:00", 60),

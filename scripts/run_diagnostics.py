@@ -49,7 +49,10 @@ def slot_occupancy(trades: list[dict], max_slots: int = MAX_SLOTS) -> dict:
     for t in trades:
         events.append((pd.Timestamp(t["open_date"]), 1))
         events.append((pd.Timestamp(t["close_date"]), -1))
-    events.sort(key=lambda e: (e[0], -e[1]))
+    # Closes sort before opens at the same timestamp: freqtrade processes
+    # exits before entries within a candle, so a same-bar turnover must not
+    # read as stacked concurrency above max_open_trades.
+    events.sort(key=lambda e: (e[0], e[1]))
     span = (events[-1][0] - events[0][0]).total_seconds()
     if span <= 0:
         return {"mean_concurrent": float(len(trades)), "max_concurrent": len(trades),
