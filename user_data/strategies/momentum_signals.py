@@ -28,6 +28,10 @@ DEFAULT_PARAMS = {
     # Optional pair-level trend confirm.
     "pair_ema_period": 50,
     "require_pair_above_ema": True,
+    # b' (2026-07-20): entry rests as a limit this far below the signal-time
+    # proposed rate, buying the measured post-signal shakeout instead of
+    # suffering it. Spec-frozen single value - no sweeps.
+    "entry_limit_depth": 0.02,
 }
 
 
@@ -97,3 +101,8 @@ def entry_mask(df: pd.DataFrame, params: dict, regime_ok) -> pd.Series:
 
     mask = regime & impulse_ok & pullback_ok & volume_ok & chase_ok & pair_ok
     return mask.fillna(False)
+
+
+def limit_entry_price(proposed_rate: float, depth: float) -> float:
+    """b' entry pricing: rest a limit `depth` below the proposed market rate."""
+    return proposed_rate * (1.0 - depth)

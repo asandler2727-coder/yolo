@@ -160,3 +160,16 @@ def test_flat_market_never_signals():
 def test_warmup_rows_never_signal():
     df = add_indicators(make_df([100.0] * 10, [1000.0] * 10), P)
     assert entry_mask(df, P, True).sum() == 0
+
+
+# --- b' limit-entry pricing (spec 2026-07-20-yolo-b-prime-limit-entry.md) ---
+
+def test_limit_entry_price_is_depth_below_proposed():
+    import pytest
+    from momentum_signals import limit_entry_price
+    assert limit_entry_price(100.0, 0.02) == pytest.approx(98.0)
+    assert limit_entry_price(0.004321, 0.02) == pytest.approx(0.004321 * 0.98)
+
+
+def test_limit_entry_depth_default_registered():
+    assert DEFAULT_PARAMS["entry_limit_depth"] == 0.02
