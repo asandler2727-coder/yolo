@@ -256,3 +256,55 @@ no mechanical exit fixes it (exit-path analysis), and entries below the shakeout
 lose the movers. Per the v2 brief §3 rules the next step, if any, is **one** tabled
 family via a short redesign note — Austin's call. No tuning, no deploy; protections
 never weakened. Feb–Jul remains burned as in-sample for this family.
+
+---
+
+## Family A pre-dev survivorship check — 2026-07-20
+
+Spec §5 requires bounding the survivor hole before any dev run: today's feathers
+contain only pairs Kraken still lists, so anything delisted since 2024 is missing
+from every backtest universe. Method: Kraken support "Delistings" section + web
+search for dated notices, then a disk check of each named asset against the 628
+`*_USD-15m.feather` files.
+
+**Dated notices found (assets; trading-disable date):**
+
+| Notice | Assets | Disabled |
+|---|---|---|
+| WAVES delisting | WAVES | 2024-07-08 |
+| MATIC→POL migration | MATIC (renamed, POL on disk) | 2024-09 |
+| Scheduled delistings Nov 2025 | MC, INTR, CSM, ROOK, OXY, AGLD, GAL, KINT, PSTAKE, KAR | 2025-11-06 |
+| Scheduled delistings Dec 2025 | UST, LUNA2, NODL, PDA, ETHW, TVK, TUSD, MOVE, BRICK | 2025-12-12 |
+| Scheduled delistings Apr 2026 | PLANCK, AIR, MICHI, FLY, ANLOG, TERM, STRD | 2026-04 |
+| Scheduled delistings May 2026 | AURA, BIT, BOND, BSX, FARM, GARI, K, KET, KINTO, LOBO, MOON, MV, NYM, RAIIN, RHEA, SAROS, SDN, SPC, SPICE, TEA, TEER | 2026-05 |
+| Scheduled delistings Jun 2026 | TITCOIN, MXC, TOKE, ASRR, ART, UNITE, TANSSI, MIRROR, SOGNI, ALMANAK, VERSE, XRT, RETARDIO, RAVE | 2026-06 |
+| Regional only (excluded from count) | XMR/DASH/ZEC (India, Canada, EEA), PORTAL (US/CA), UTU/ESX (EEA), H, KILT, RAIN, SNAPX, Kinto | various |
+
+**Disk verification:** all 33 spot-checked delisted assets (the full Nov+Dec 2025
+lists plus 13 sampled from 2026 notices, plus WAVES and MATIC) are ABSENT from
+the feather set. POL (MATIC's rename) is present. So the dataset is confirmed
+survivor-only, and even assets delisted AFTER the 2026-03-31 bulk-export cutoff
+are gone — the export/download pipeline only ever saw currently-listed pairs.
+
+**Bound:** at least **61 assets** were removed by the five scheduled notices
+2025-11→2026-06 alone (+WAVES inside the dev window). Kraken's stated reason —
+"no longer meet our internal performance standards," i.e. low volume — puts
+these exactly in arm D's rank-31..100/$100k band population (41–70 pairs/month).
+Their entire histories, including the decaying months INSIDE dev (2024-02→
+2025-08) and holdout (2025-09→2026-01), are invisible; a decaying coin's failed
+breakouts are precisely what this strategy would have bought. Assets like AGLD,
+GAL, ETHW, LUNA2, MOVE very likely cleared the floors during dev months
+(judgment — no volume data survives to verify).
+
+**Caveats:** no public scheduled-delisting notices surfaced for 2024→2025-10
+beyond WAVES (either Kraken began systematic monthly culls in 2025-11, or older
+notices were purged from support) — so 61+ is a **lower bound**. Whether every
+listed asset had a Kraken USD pair is unverifiable today, but Kraken lists USD
+for nearly all spot assets. The Apr–Jun 2026 removals also thin the kill window
+(2026-02→07) on top of the known DOGE hole.
+
+**Consequence (pre-registered stance):** the survivor bias flatters dev and
+holdout results, hardest on arm D. Per spec §5 this hardens skepticism on any
+later "pass" — a dev-positive or holdout-surviving arm is *permitted to
+proceed*, never validated, and paper trading (survivorship-free) remains the
+only verdict.
