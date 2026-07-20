@@ -1,70 +1,50 @@
-"""v2 pullback-in-uptrend signal tests.
+"""Family-A range-breakout signal tests.
 
-Design: one GOLDEN entry fixture (regime up + prior impulse + pullback into band
-+ volume alive + close above pair EMA). Every negative is the golden fixture
-with exactly ONE gate perturbed, so a red test names the gate that broke.
+Design: one GOLDEN breakout fixture (regime up + tight 12h coil + close above
+the range high on expanded volume, inside the anti-chase cap). Every negative
+is the golden fixture with exactly ONE gate perturbed, so a red test names the
+gate that broke.
 
-Fixture geometry notes:
-- "the high" in the pullback rule = highest *close* over impulse_lookback,
-  matching the impulse rule (not the OHLC `high` column).
-- The impulse peak sits several bars before the firing bar so the last 3 bars
-  are all on the declining side; otherwise the anti-chase gate (pct_change over
-  3 bars < 2%) would fight a valid pullback and block the entry we want to fire.
-- 58 flat low bars precede the impulse so EMA50 lags well below the pullback
-  close and `require_pair_above_ema` passes on the golden bar.
+Fixture geometry:
+- 60 coil bars (open 101, high 103, low 100, close 101.5, vol 1000) then one
+  firing bar closing 103.5 on volume 2500. Range over the PRIOR 48 candles
+  (shift(1)): high 103, low 100, width 3.0% <= 6%. Cap = 103*1.015 = 104.545.
+  vol_avg at the firing bar = (47*1000 + 2500)/48 = 1031.25; 2x = 2062.5.
+- The look-ahead test gives the firing bar a monster 200.0 wick: if the range
+  wrongly included the current bar, range_high would be 200 and the breakout
+  test (close > range_high) would fail — so the signal firing PROVES shift(1).
 """
 import sys
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "user_data" / "strategies"))
 from momentum_signals import (  # noqa: E402
     DEFAULT_PARAMS,
     add_indicators,
     entry_mask,
+    fill_allowed,
     regime_mask_from_btc,
     resample_1h,
+    signal_bar_cap,
 )
 
 P = DEFAULT_PARAMS
 
-
-def make_df(closes, volumes):
-    return pd.DataFrame({"close": closes, "volume": volumes})
-
-
-# --- fixtures -------------------------------------------------------------
-
-def golden():
-    # 58 flat bars, then impulse to a peak at idx 63 (+~5%), then a 6-bar
-    # pullback ending ~1.9% below the peak on the firing bar (idx 69).
-    closes = [100.0] * 58 + [
-        101.0, 102.5, 104.0, 105.0, 105.5, 106.0,  # rise, peak = 106 @ idx63
-        105.5, 105.0, 104.6, 104.3, 104.1, 104.0,  # pullback to 104.0 @ idx69
-    ]
-    volumes = [1000.0] * 58 + [2500.0] * 12  # volume alive on the move
-    return make_df(closes, volumes)
+COIL = (101.0, 103.0, 100.0, 101.5, 1000.0)
+FIRE = (102.0, 103.8, 101.8, 103.5, 2500.0)
 
 
-def collapse():
-    # Golden, but the firing bar falls to 100.5 -> ~5.2% below the 106 high,
-    # past pullback_max_pct: a full trend failure, not a pullback.
-    df = golden()
-    df.loc[df.index[-1], "close"] = 100.5
+def make_df(rows):
+    df = pd.DataFrame(rows, columns=["open", "high", "low", "close", "volume"])
+    df["date"] = pd.date_range("2024-11-01", periods=len(df), freq="15min", tz="UTC")
     return df
 
 
-def chase():
-    # Everything passes EXCEPT anti-chase: a dip at idx66 (t-3) then a fresh
-    # peak at idx67 (t-2) makes the 3-bar change to the firing bar ~+2.2% (>=2%),
-    # while the firing close is still ~1.7% below that fresh high (valid pullback).
-    closes = [100.0] * 58 + [
-        101.0, 102.0, 103.0, 104.0, 105.0, 105.5,
-        105.0, 104.0, 102.0, 106.0, 105.0, 104.2,  # dip 102 @66, peak 106 @67
-    ]
-    volumes = [1000.0] * 58 + [2500.0] * 12
-    return make_df(closes, volumes)
+def golden():
+    return make_df([COIL] * 60 + [FIRE])
 
 
 def btc_trend(start, step, n=60):
@@ -99,40 +79,76 @@ def test_regime_false_in_clear_downtrend():
     assert bool(regime.iloc[-1]) is False
 
 
-# --- golden entry + individual sub-gates ----------------------------------
+# --- golden breakout + individual sub-gates -------------------------------
 
-def test_golden_pullback_fires_and_all_subgates_pass():
+def test_golden_breakout_fires_and_all_subgates_pass():
     df = add_indicators(golden(), P)
     last = df.iloc[-1]
     # sub-gates asserted individually so a failure names the culprit
-    assert last["impulse_pct"] >= P["impulse_min_pct"]
-    assert P["pullback_min_pct"] <= last["drawdown_from_high"] <= P["pullback_max_pct"]
+    assert last["range_high"] == 103.0
+    assert last["range_low"] == 100.0
+    assert last["range_width"] <= P["range_max_width"]
+    assert last["close"] > last["range_high"]
+    assert last["close"] <= last["entry_cap"]
     assert last["volume"] >= P["volume_mult"] * last["vol_avg"]
-    assert last["pct_change_3"] < P["chase_block_pct"]
-    assert last["close"] > last["ema_pair"]
-    assert bool(entry_mask(df, P, True).iloc[-1]) is True
+    mask = entry_mask(df, P, True)
+    assert bool(mask.iloc[-1]) is True
+    assert mask.sum() == 1  # coil bars and warmup never fire
+
+
+def test_entry_cap_is_extension_above_range_high():
+    df = add_indicators(golden(), P)
+    assert df["entry_cap"].iloc[-1] == pytest.approx(103.0 * (1 + P["max_extension"]))
 
 
 # --- negatives: one perturbed gate each -----------------------------------
 
-def test_regime_false_blocks_perfect_pullback():
+def test_regime_false_blocks_perfect_breakout():
     df = add_indicators(golden(), P)
     assert entry_mask(df, P, False).sum() == 0
 
 
-def test_chase_block_stops_hot_last_three_bars():
-    df = add_indicators(chase(), P)
+def test_wide_range_blocks_breakout():
+    # Coil lows at 96.5 -> width (103-96.5)/96.5 = 6.7% > 6%: not a coil.
+    wide_coil = (101.0, 103.0, 96.5, 101.5, 1000.0)
+    df = add_indicators(make_df([wide_coil] * 60 + [FIRE]), P)
+    assert df["range_width"].iloc[-1] > P["range_max_width"]
+    assert entry_mask(df, P, True).sum() == 0
+
+
+def test_close_below_range_high_is_not_a_breakout():
+    no_break = (102.0, 103.8, 101.8, 102.8, 2500.0)  # close 102.8 <= 103
+    df = add_indicators(make_df([COIL] * 60 + [no_break]), P)
+    assert df["close"].iloc[-1] <= df["range_high"].iloc[-1]
+    assert entry_mask(df, P, True).sum() == 0
+
+
+def test_close_above_cap_is_a_chase_and_blocked():
+    chase = (102.0, 104.8, 101.8, 104.6, 2500.0)  # 104.6 > 103*1.015 = 104.545
+    df = add_indicators(make_df([COIL] * 60 + [chase]), P)
     last = df.iloc[-1]
-    # pullback geometry still valid, but the 3-bar move is too hot
-    assert P["pullback_min_pct"] <= last["drawdown_from_high"] <= P["pullback_max_pct"]
-    assert last["pct_change_3"] >= P["chase_block_pct"]
-    assert bool(entry_mask(df, P, True).iloc[-1]) is False
+    assert last["close"] > last["range_high"]      # it IS a breakout...
+    assert last["close"] > last["entry_cap"]       # ...but an escaped train
+    assert entry_mask(df, P, True).sum() == 0
 
 
-def test_full_collapse_past_max_pullback_does_not_signal():
-    df = add_indicators(collapse(), P)
-    assert df.iloc[-1]["drawdown_from_high"] > P["pullback_max_pct"]
-    assert bool(entry_mask(df, P, True).iloc[-1]) is False
+def test_weak_volume_blocks_breakout():
+    quiet = (102.0, 103.8, 101.8, 103.5, 1500.0)  # 1500 < 2 x ~1010
+    df = add_indicators(make_df([COIL] * 60 + [quiet]), P)
+    last = df.iloc[-1]
+    assert last["volume"] < P["volume_mult"] * last["vol_avg"]
+    assert entry_mask(df, P, True).sum() == 0
+
+
+# --- look-ahead: the firing bar must be excluded from its own range --------
+
+def test_firing_bar_own_high_excluded_from_range():
+    spike = (102.0, 200.0, 101.8, 103.5, 2500.0)  # monster wick on the firing bar
+    df = add_indicators(make_df([COIL] * 60 + [spike]), P)
+    # If rolling included the current bar, range_high would be 200 and the
+    # breakout (close > range_high) could never fire. shift(1) keeps it 103.
+    assert df["range_high"].iloc[-1] == 103.0
+    assert bool(entry_mask(df, P, True).iloc[-1]) is True
 
 
 # --- regime passed as an aligned Series (the strategy's real path) ---------
@@ -153,23 +169,54 @@ def test_regime_series_false_on_firing_bar_blocks():
 # --- warmup / dead market -------------------------------------------------
 
 def test_flat_market_never_signals():
-    df = add_indicators(make_df([100.0] * 80, [1000.0] * 80), P)
+    flat = (100.0, 100.0, 100.0, 100.0, 1000.0)
+    df = add_indicators(make_df([flat] * 80), P)
     assert entry_mask(df, P, True).sum() == 0
 
 
 def test_warmup_rows_never_signal():
-    df = add_indicators(make_df([100.0] * 10, [1000.0] * 10), P)
+    df = add_indicators(make_df([COIL] * 10), P)
     assert entry_mask(df, P, True).sum() == 0
 
 
-# --- b' limit-entry pricing (spec 2026-07-20-yolo-b-prime-limit-entry.md) ---
+# --- fill veto: the cap is FROZEN at the signal bar (spec s3 auditor pin) ---
 
-def test_limit_entry_price_is_depth_below_proposed():
-    import pytest
-    from momentum_signals import limit_entry_price
-    assert limit_entry_price(100.0, 0.02) == pytest.approx(98.0)
-    assert limit_entry_price(0.004321, 0.02) == pytest.approx(0.004321 * 0.98)
+def test_signal_bar_cap_reads_the_signal_bars_cap():
+    df = add_indicators(golden(), P)
+    df["enter_long"] = entry_mask(df, P, True).astype(int)
+    fill_time = df["date"].iloc[-1] + pd.Timedelta(minutes=15)
+    assert signal_bar_cap(df, fill_time) == pytest.approx(103.0 * (1 + P["max_extension"]))
 
 
-def test_limit_entry_depth_default_registered():
-    assert DEFAULT_PARAMS["entry_limit_depth"] == 0.02
+def test_signal_bar_cap_frozen_not_rolling():
+    # Two bars AFTER the signal push the rolling range up to 110; the frozen
+    # cap must still come from the signal bar. A rolling reference would
+    # quietly re-admit the chase.
+    later = (104.0, 110.0, 103.0, 108.0, 1000.0)
+    df = add_indicators(make_df([COIL] * 60 + [FIRE] + [later] * 2), P)
+    df["enter_long"] = entry_mask(df, P, True).astype(int)
+    assert df["enter_long"].sum() == 1  # only the original breakout fired
+    fill_time = df["date"].iloc[-1] + pd.Timedelta(minutes=15)
+    cap = signal_bar_cap(df, fill_time)
+    assert cap == pytest.approx(103.0 * (1 + P["max_extension"]))
+    assert df["entry_cap"].iloc[-1] > cap  # the rolling cap moved on; the frozen one didn't
+
+
+def test_signal_bar_cap_none_without_prior_signal():
+    df = add_indicators(golden(), P)
+    df["enter_long"] = 0
+    assert signal_bar_cap(df, df["date"].iloc[-1] + pd.Timedelta(minutes=15)) is None
+
+
+def test_signal_bar_cap_ignores_signal_at_or_after_fill_time():
+    df = add_indicators(golden(), P)
+    df["enter_long"] = entry_mask(df, P, True).astype(int)
+    # fill_time == the signal bar itself: the signal is not strictly before it
+    assert signal_bar_cap(df, df["date"].iloc[-1]) is None
+
+
+def test_fill_allowed_at_cap_but_not_above():
+    cap = 104.545
+    assert fill_allowed(cap, cap) is True
+    assert fill_allowed(cap * 1.0001, cap) is False
+    assert fill_allowed(100.0, None) is False  # no cap -> fail closed

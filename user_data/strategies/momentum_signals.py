@@ -1,12 +1,12 @@
-"""Pure-pandas v2 signal math for MemeMomentum: higher-TF uptrend regime +
-15m pullback-into-support entry (non-chase), fee-aware by design.
+"""Pure-pandas family-A signal math for MemeMomentum: higher-TF uptrend regime
++ 15m range-coil breakout entry, anti-chase capped at signal AND fill.
 
-Kept freqtrade-free so it can be unit tested locally and reused verbatim by the
-strategy and backtest harness. See
-docs/superpowers/specs/2026-07-19-yolo-v2-pullback-redesign.md for the math.
+Kept freqtrade-free so it can be unit tested locally and reused verbatim by
+the strategy and verification scripts. Every number comes from
+docs/superpowers/specs/2026-07-20-yolo-family-a-range-breakout.md.
 
-v1 (chase a completed pump + climax volume) is frozen — proven negative
-expectancy at taker fees. Do not reintroduce it here.
+Prior families are frozen falsified (v1 chase, v2 market pullback, b' limit
+pullback — git history keeps their code). Do not reintroduce them here.
 """
 import pandas as pd
 
@@ -14,42 +14,33 @@ DEFAULT_PARAMS = {
     # Regime, computed on a higher-TF (1h) series — longs only in an up market.
     "regime_ema_fast": 20,
     "regime_ema_slow": 50,
-    # Impulse + pullback geometry on the 15m entry stream.
-    "impulse_lookback": 12,      # 12 x 15m = 3h window for the prior move
-    "impulse_min_pct": 0.04,     # the window must have advanced >= 4%
-    "pullback_min_pct": 0.015,   # firing close >= 1.5% below the window high
-    "pullback_max_pct": 0.05,    # ...but <= 5% below it (else trend failure)
-    # Anti-chase: block if the last 3 bars already ripped.
-    "chase_block_candles": 3,
-    "chase_block_pct": 0.02,
-    # Volume must still be alive (lower bar than v1's climax spike).
-    "volume_window": 48,         # 12h rolling baseline
-    "volume_mult": 1.5,
-    # Optional pair-level trend confirm.
-    "pair_ema_period": 50,
-    "require_pair_above_ema": True,
-    # b' (2026-07-20): entry rests as a limit this far below the signal-time
-    # proposed rate, buying the measured post-signal shakeout instead of
-    # suffering it. Spec-frozen single value - no sweeps.
-    "entry_limit_depth": 0.02,
+    # Range coil on the 15m entry stream: the PRIOR `range_lookback` candles,
+    # current bar excluded via shift(1) — the breakout candle must never be
+    # part of the range it breaks out of.
+    "range_lookback": 48,       # 48 x 15m = 12h
+    "range_max_width": 0.06,    # (high - low) / low of the range
+    # Anti-chase: entry only within this fraction above the range high; also
+    # the fill-veto cap, frozen at the signal bar (confirm_trade_entry).
+    "max_extension": 0.015,
+    # Breakout-candle volume vs its rolling baseline.
+    "volume_window": 48,
+    "volume_mult": 2.0,
 }
 
 
 def add_indicators(df: pd.DataFrame, params: dict) -> pd.DataFrame:
-    """Add the numeric columns the entry gates read. Backward-looking only."""
+    """Add the numeric columns the entry gates read. Backward-looking only:
+    range_high/range_low are shift(1) so the firing candle is excluded from
+    its own range."""
     df = df.copy()
-    n = params["impulse_lookback"]
-    window_high = df["close"].rolling(n).max()
-    window_low = df["close"].rolling(n).min()
-    # Prior move over the window, and how far the current close has pulled back
-    # from the window high. "the high" is the highest *close*, not `high`.
-    df["impulse_pct"] = (window_high - window_low) / window_low
-    df["drawdown_from_high"] = (window_high - df["close"]) / window_high
+    n = params["range_lookback"]
+    df["range_high"] = df["high"].rolling(n).max().shift(1)
+    df["range_low"] = df["low"].rolling(n).min().shift(1)
+    df["range_width"] = (df["range_high"] - df["range_low"]) / df["range_low"]
     df["vol_avg"] = df["volume"].rolling(params["volume_window"]).mean()
-    df["pct_change_3"] = df["close"].pct_change(params["chase_block_candles"])
-    df["ema_pair"] = df["close"].ewm(
-        span=params["pair_ema_period"], adjust=False
-    ).mean()
+    # Per-bar cap; the fill veto reads the SIGNAL bar's value, never a later
+    # bar's — a rolling reference would re-admit the chase (spec s3 pin).
+    df["entry_cap"] = df["range_high"] * (1.0 + params["max_extension"])
     return df
 
 
@@ -77,32 +68,39 @@ def regime_mask_from_btc(btc_1h: pd.DataFrame, params: dict) -> pd.Series:
 
 
 def entry_mask(df: pd.DataFrame, params: dict, regime_ok) -> pd.Series:
-    """Long only in an up regime, on a pullback (not a chase) of a real move
-    that still has volume. `regime_ok` is a bool (broadcast) or a Series already
-    aligned to `df` (as the strategy passes it after the informative merge)."""
+    """Breakout long: up regime + tight prior range + close above the range
+    high but inside the anti-chase cap + expanded volume. `regime_ok` is a
+    bool (broadcast) or a Series already aligned to `df` (as the strategy
+    passes it after the informative merge)."""
     if isinstance(regime_ok, pd.Series):
         regime = regime_ok.reindex(df.index).fillna(False).astype(bool)
     else:
         regime = pd.Series(bool(regime_ok), index=df.index)
 
-    impulse_ok = df["impulse_pct"] >= params["impulse_min_pct"]
-    pullback_ok = (df["drawdown_from_high"] >= params["pullback_min_pct"]) & (
-        df["drawdown_from_high"] <= params["pullback_max_pct"]
-    )
+    range_ok = df["range_width"] <= params["range_max_width"]
+    breakout = df["close"] > df["range_high"]
+    capped = df["close"] <= df["entry_cap"]
     volume_ok = df["vol_avg"].notna() & (
         df["volume"] >= params["volume_mult"] * df["vol_avg"]
     )
-    # Block if the last 3 bars already ran; NaN (warmup) -> False -> no entry.
-    chase_ok = df["pct_change_3"] < params["chase_block_pct"]
-    if params["require_pair_above_ema"]:
-        pair_ok = df["close"] > df["ema_pair"]
-    else:
-        pair_ok = pd.Series(True, index=df.index)
-
-    mask = regime & impulse_ok & pullback_ok & volume_ok & chase_ok & pair_ok
+    mask = regime & range_ok & breakout & capped & volume_ok
     return mask.fillna(False)
 
 
-def limit_entry_price(proposed_rate: float, depth: float) -> float:
-    """b' entry pricing: rest a limit `depth` below the proposed market rate."""
-    return proposed_rate * (1.0 - depth)
+def signal_bar_cap(df: pd.DataFrame, fill_time) -> float | None:
+    """Entry cap FROZEN at the newest signal bar strictly before `fill_time`.
+    Returns None when no prior signal bar (or no finite cap) exists — the
+    caller fails closed and vetoes."""
+    if "enter_long" not in df.columns:
+        return None
+    prior = df[(df["enter_long"] == 1) & (df["date"] < fill_time)]
+    if prior.empty:
+        return None
+    cap = prior["entry_cap"].iloc[-1]
+    return None if pd.isna(cap) else float(cap)
+
+
+def fill_allowed(fill_rate: float, cap: float | None) -> bool:
+    """The fill-side anti-chase bound (spec s3/s7): no cap -> fail closed;
+    above the frozen cap -> the gap-open is an accepted missed fill."""
+    return cap is not None and fill_rate <= cap
