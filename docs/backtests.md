@@ -326,6 +326,35 @@ run.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | 2026-07-20 | — (spec defaults) | Baseline: breakout-at-start placement clears fees in up-regime where pullback entries could not | L | 843 | −76.40 | 9.19 | 21.7 | 10 | 99 | 12.2 | 10 / 3.5% | FAIL — 17/19 months negative |
 | 1 | 2026-07-20 | — (spec defaults) | same | D | 720 | −91.80 | 10.37 | 18.5 | 11 | 229 | 12.6 | 10 / 4.8% | FAIL — 18/19 months negative |
+| 2 | 2026-07-20 | `range_lookback` 48→32 | Shorter 8h coil fires more often on fresher structure; expected to LOSE, since coil quality measured backwards | L | PENDING | | | | | | | | |
+| 2 | 2026-07-20 | `range_lookback` 48→32 | same | D | PENDING | | | | | | | | |
+| 3 | 2026-07-20 | `range_lookback` 48→96 | Longer 24h base is the strongest pre-registered case: bigger base, fewer and higher-conviction breakouts, and holding longer is the one direction fees favour | L | PENDING | | | | | | | | |
+| 3 | 2026-07-20 | `range_lookback` 48→96 | same | D | PENDING | | | | | | | | |
+
+**Iterations 2–3 pre-registration (logged 2026-07-20, before either run).**
+Austin chose option (b): spend the last two pre-registered stones on
+`range_lookback` {32, 96} against the frozen 48. This is the one knob the path
+diagnostic could not test, because it redefines the range itself rather than
+filtering the entries the range produced. Both values are logged here **before
+either backtest ran**, so nothing between them is adaptive.
+
+*What I expect, and why it is worth two iterations anyway.* The diagnostic put
+the ceiling at −0.79%/trade across a continuously swept exit space, and every
+entry tightening made things worse, so the honest prior is that neither value
+flips the gate. **32** should be the weaker of the two: it forms tighter, more
+recent coils, and tighter coils already measured *worse* (mean 24h peak +4.31%
+→ +3.73%). **96** carries the only live mechanism left — a 24h base is a
+stronger structure than a 12h one, it fires less often on higher conviction,
+and a longer hold is the single direction the 0.9%/1.2% fee drag actually
+favours. If 96 is going to work, it should show up as *fewer trades and a
+better per-trade average*, not as more trades.
+
+*Falsifier, fixed in advance.* The gate is unchanged: ≥5 trades/up-week AND
+positive summed monthly profit, both arms, protections on. A value that merely
+loses less than −76.40% has **not** passed and does not earn a fourth
+iteration or a move to option (c) — that is the fishing the spec forbids by
+name. If both fail, family A is dead in dev having exhausted its pre-registered
+knobs, and `range_lookback` returns to 48.
 
 **Iteration 1 (baseline) readout.** Profit % is the sum of monthly percents
 (harness convention). Result zips `2026-07-20_08-25-17`…`08-27-17` (L) and

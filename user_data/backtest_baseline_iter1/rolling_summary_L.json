@@ -1,0 +1,146 @@
+{
+  "arm": "L",
+  "fee": 0.0045,
+  "months": [
+    "2024-02",
+    "2024-03",
+    "2024-04",
+    "2024-05",
+    "2024-06",
+    "2024-07",
+    "2024-08",
+    "2024-09",
+    "2024-10",
+    "2024-11",
+    "2024-12",
+    "2025-01",
+    "2025-02",
+    "2025-03",
+    "2025-04",
+    "2025-05",
+    "2025-06",
+    "2025-07",
+    "2025-08"
+  ],
+  "total_trades": 843,
+  "trades_per_week": 10.21,
+  "total_profit_pct": -76.4,
+  "max_drawdown_pct": 9.19,
+  "per_month": [
+    {
+      "month": "2024-02",
+      "trades": 58,
+      "profit_pct": -2.7107185826666664,
+      "max_drawdown_pct": 3.8739535741945192
+    },
+    {
+      "month": "2024-03",
+      "trades": 25,
+      "profit_pct": -3.026840204,
+      "max_drawdown_pct": 5.015593806128503
+    },
+    {
+      "month": "2024-04",
+      "trades": 45,
+      "profit_pct": -4.542265037333333,
+      "max_drawdown_pct": 4.717247447176095
+    },
+    {
+      "month": "2024-05",
+      "trades": 49,
+      "profit_pct": -5.288802013333334,
+      "max_drawdown_pct": 8.66127656475201
+    },
+    {
+      "month": "2024-06",
+      "trades": 41,
+      "profit_pct": -4.664800635999999,
+      "max_drawdown_pct": 6.064717051607763
+    },
+    {
+      "month": "2024-07",
+      "trades": 35,
+      "profit_pct": -7.236093078666666,
+      "max_drawdown_pct": 7.5123384729022495
+    },
+    {
+      "month": "2024-08",
+      "trades": 45,
+      "profit_pct": -7.266986562666668,
+      "max_drawdown_pct": 9.18549395228428
+    },
+    {
+      "month": "2024-09",
+      "trades": 51,
+      "profit_pct": -1.8184777106666665,
+      "max_drawdown_pct": 3.386577067334463
+    },
+    {
+      "month": "2024-10",
+      "trades": 63,
+      "profit_pct": -4.041425144,
+      "max_drawdown_pct": 6.645848044514328
+    },
+    {
+      "month": "2024-11",
+      "trades": 60,
+      "profit_pct": 0.9527425160000005,
+      "max_drawdown_pct": 6.093744133159847
+    },
+    {
+      "month": "2024-12",
+      "trades": 25,
+      "profit_pct": -5.524483045333334,
+      "max_drawdown_pct": 6.563513777567274
+    },
+    {
+      "month": "2025-01",
+      "trades": 65,
+      "profit_pct": 0.20206795466666638,
+      "max_drawdown_pct": 6.6566552628529605
+    },
+    {
+      "month": "2025-02",
+      "trades": 19,
+      "profit_pct": -1.1919488413333335,
+      "max_drawdown_pct": 2.886443792054439
+    },
+    {
+      "month": "2025-03",
+      "trades": 65,
+      "profit_pct": -2.230905090666667,
+      "max_drawdown_pct": 4.344765684728402
+    },
+    {
+      "month": "2025-04",
+      "trades": 52,
+      "profit_pct": -3.0339233053333343,
+      "max_drawdown_pct": 4.858777573483118
+    },
+    {
+      "month": "2025-05",
+      "trades": 32,
+      "profit_pct": -7.257112353333333,
+      "max_drawdown_pct": 7.329361867237624
+    },
+    {
+      "month": "2025-06",
+      "trades": 29,
+      "profit_pct": -8.747876176,
+      "max_drawdown_pct": 9.183542201497543
+    },
+    {
+      "month": "2025-07",
+      "trades": 54,
+      "profit_pct": -4.360538452,
+      "max_drawdown_pct": 7.0218370091446385
+    },
+    {
+      "month": "2025-08",
+      "trades": 30,
+      "profit_pct": -4.611271162666667,
+      "max_drawdown_pct": 5.488173360791939
+    }
+  ],
+  "gate_pass": false
+}
