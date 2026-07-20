@@ -1,0 +1,53 @@
+Family A dev entries: 1563 (L=843, D=720)
+Structural stop resolved for 1563; 0 had no signal-bar range (excluded from the structural rows only).
+
+Structural stop depth from entry (net of fees):
+  p10=-6.13%  p25=-5.80%  p50=-4.78%  p75=-3.74%  p90=-3.02%
+  tighter than the -4% baseline on 31% of trades; the -5% cap binds on 46%
+
+--- arm L ------------------------------------------------------------------
+  exit config                            n   /trade   win%     avgW     avgL
+  roi=wider trail=off stop STRUCTURAL   843   -0.79%    50%   +2.87%   -4.38% <-
+  roi=tighter trail=on stop STRUCTURAL   843   -0.83%    60%   +1.48%   -4.32% <-
+  roi=tighter trail=off stop STRUCTURAL   843   -0.83%    60%   +1.48%   -4.32% <-
+  roi=wider trail=off stop -4%         843   -0.83%    52%   +2.82%   -4.86%
+  roi=default trail=off stop STRUCTURAL   843   -0.84%    54%   +2.15%   -4.37% <-
+  roi=default trail=off stop -4%       843   -0.85%    57%   +2.12%   -4.86%
+  roi=tighter trail=on stop -4%        843   -0.86%    63%   +1.46%   -4.86%
+  roi=tighter trail=off stop -4%       843   -0.86%    63%   +1.46%   -4.86%
+  roi=default trail=on stop STRUCTURAL   843   -0.96%    54%   +1.90%   -4.30% <-
+  roi=default trail=on stop -4%        843   -0.97%    57%   +1.88%   -4.79%
+  roi=wider trail=on stop STRUCTURAL   843   -1.04%    50%   +2.16%   -4.28% <-
+  roi=wider trail=on stop -4%          843   -1.08%    53%   +2.15%   -4.76%
+  best: roi=wider trail=off stop STRUCTURAL  -0.79%/trade
+
+--- arm D ------------------------------------------------------------------
+  exit config                            n   /trade   win%     avgW     avgL
+  roi=wider trail=off stop STRUCTURAL   720   -1.05%    48%   +2.93%   -4.70% <-
+  roi=wider trail=off stop -4%         720   -1.07%    51%   +2.88%   -5.18%
+  roi=default trail=off stop -4%       720   -1.19%    55%   +2.13%   -5.19%
+  roi=default trail=off stop STRUCTURAL   720   -1.21%    51%   +2.17%   -4.70% <-
+  roi=tighter trail=on stop -4%        720   -1.27%    59%   +1.43%   -5.19%
+  roi=tighter trail=off stop -4%       720   -1.27%    59%   +1.43%   -5.19%
+  roi=tighter trail=on stop STRUCTURAL   720   -1.31%    55%   +1.46%   -4.67% <-
+  roi=tighter trail=off stop STRUCTURAL   720   -1.31%    55%   +1.46%   -4.67% <-
+  roi=wider trail=on stop STRUCTURAL   720   -1.31%    47%   +2.31%   -4.55% <-
+  roi=default trail=on stop -4%        720   -1.31%    54%   +1.91%   -5.08%
+  roi=default trail=on stop STRUCTURAL   720   -1.32%    50%   +1.93%   -4.59% <-
+  roi=wider trail=on stop -4%          720   -1.34%    50%   +2.30%   -5.03%
+  best: roi=wider trail=off stop STRUCTURAL  -1.05%/trade
+
+--- stop-depth sweep (DIAGNOSTIC ONLY, not pre-registered) ------------------
+  roi=wider, trailing off — the best in-grid shape on both arms.
+  stop              arm L /trade   win%    arm D /trade   win%
+  -1.5%                  -0.68%    31%         -0.88%    31%
+  -2%                    -0.66%    37%         -0.96%    36%
+  -2.5%                  -0.66%    43%         -0.99%    40%
+  -3%                    -0.72%    47%         -0.98%    45%
+  -4% (baseline)         -0.83%    52%         -1.07%    51%
+  -5%                    -0.99%    56%         -1.00%    58%
+  -6%                    -0.98%    61%         -1.06%    61%
+  -8%                    -1.06%    68%         -1.21%    67%
+  none                   -0.60%    87%         -0.35%    89%
+
+Slot contention ignored; in-sample on the dev window; the holdout seal truncates windows near 2025-08-31.

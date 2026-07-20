@@ -126,7 +126,7 @@ def roi_for_minutes(roi: dict, minutes: float) -> float:
 
 
 def simulate(entry_ts, entry_rate, window, fee, roi, stop_pct, trailing: bool,
-             stagnation_h=None):
+             stagnation_h=None, stop_abs=None):
     """Mirror freqtrade's backtest exit stack on 15m candles.
 
     Within-candle order is freqtrade's, not an intuitive one, and the crosstab
@@ -143,10 +143,15 @@ def simulate(entry_ts, entry_rate, window, fee, roi, stop_pct, trailing: bool,
 
     Gap fills: a stop fills at the open when the candle opened through it, and
     ROI likewise -- hence the min()/max() rather than the trigger price.
+
+    `stop_abs` overrides `stop_pct` with an absolute price, for the spec's
+    STRUCTURAL stop (the signal bar's range low, capped at -5%). Same mechanic,
+    per-trade level: it stays a hard stop until the trailing stop ratchets past
+    it, so it sits inside the validated envelope.
     """
     if not len(window):
         return None
-    stop_price = entry_rate * (1 + stop_pct)
+    stop_price = stop_abs if stop_abs is not None else entry_rate * (1 + stop_pct)
     peak_rate = entry_rate
     trail_armed = trailing_active = False
 

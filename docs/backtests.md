@@ -433,3 +433,58 @@ sealed holdout a correspondingly higher bar. Limits that apply to every number
 above: slot contention is ignored (occupancy was 1.1–1.3 of 10, so small, not
 zero), month-boundary force-exits are dropped (7 trades), and all of it is
 in-sample on the dev window.
+
+### Correction and completion — structural stop — 2026-07-20 — NO ITERATION SPENT
+
+**The exit sweep above had a hole, and the claim "all 24 pre-registered
+variants" was wrong.** Spec §3's stop knob is `{−4% fixed, structural = signal
+-bar range low capped at −5%}`. The sweep substituted a **flat −5%** for the
+structural leg. That is not a near-miss, it is close to the opposite: flat −5%
+is looser than baseline on every trade, while a structural stop was supposed to
+be tighter on most. The one exit lever with a mechanism behind it — winners
+barely dip (median −0.71% before the 24h peak, only 9% of movers touch −4%
+first) while losers pay the full stop (−4.86%) — had never actually been run.
+`scripts/path_analysis/structural_stop.py` closes that hole. Same validated
+engine, same mechanic, only the per-trade stop *level* changes, so it sits
+inside the 0.083%/trade envelope.
+
+**The structural stop is not what it was assumed to be.** Measured over all
+1563 entries, its depth from entry is p25 −5.80% / **p50 −4.78%** / p75 −3.74%.
+It is *looser* than the −4% baseline on **69%** of trades, and the −5% cap
+binds on 46%. Real coils are wider than the mechanism assumed and round-trip
+fees add ~1%. It helps, and by almost nothing: best cell arm L `roi=wider
+trail=off structural` **−0.79%/trade** (vs −0.83% for the same shape at −4%),
+arm D −1.05% (vs −1.07%). It does exactly what it was built to do — average
+loss −4.86% → −4.38% — and the win rate falls 52% → 50%, so the net barely
+moves. The same diffuse-loss signature as the stagnation cut.
+
+**Stop-depth sweep — diagnostic, outside the pre-registered grid.** Because the
+structural stop turned out loose, it never tested the tight-stop idea. This
+does, in full generality (roi=wider, trailing off, per-trade net):
+
+| stop | −1.5% | −2% | −2.5% | −3% | −4% | −5% | −6% | −8% | none |
+|---|---|---|---|---|---|---|---|---|---|
+| arm L | −0.68% | −0.66% | −0.66% | −0.72% | −0.83% | −0.99% | −0.98% | −1.06% | −0.60% |
+| arm D | −0.88% | −0.96% | −0.99% | −0.98% | −1.07% | −1.00% | −1.06% | −1.21% | −0.35% |
+
+The curve is **flat and negative everywhere**. Across a 5× range of stop depth
+the whole span is ~0.4pp on either arm and never comes within 0.65pp of
+breakeven. The no-stop column is the sharpest reading of all: holding to a 720h
+horizon wins **87–89%** of the time and *still* loses money, which says the
+damage is in a tail no stop placement can dodge. (That column is horizon- and
+seal-sensitive, so treat it as a direction, not a number.)
+
+**This is what earns the verdict.** "The exit lever is spent" is now measured
+rather than assumed: ROI shape × trailing × stop depth swept continuously, and
+nothing approaches breakeven. The best cell in the corrected space is
+−0.79%/trade against a ~0.8pp gap. Adopting any depth off that curve would be
+both a scope change (spec §3 pre-registers only two stop values) and a fit to
+the dev window.
+
+**One caveat retracted from the earlier section.** The stagnation cells sit
+*outside* the validated envelope — the config as run had stagnation off, and
+`custom_exit` is modelled on the candle close where freqtrade may evaluate it on
+the open. Those cells are deeply negative, so plausible modelling error does not
+flip them, but they should not have been reported under the blanket
+"engine validated" claim. The structural-stop and depth rows above do not have
+this problem.
