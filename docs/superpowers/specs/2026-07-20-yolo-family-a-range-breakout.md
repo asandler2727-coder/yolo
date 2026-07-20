@@ -77,9 +77,11 @@ candle can close inside the cap and gap open above it — and we would buy the g
 disguise (the audit's top finding; worst on arm D's thin books). Vetoed gap-opens are
 accepted missed fills, and this is not b′'s mistake in reverse: b′ demanded a discount
 below the signal and selected for falling coins; this veto only refuses to pay *more*
-than the pre-registered price. Unit tests must assert both bounds — signal close AND
-fill rate. The b′ record stands: no resting limits below the signal, no retest-limit
-variant in v1 of this family.
+than the pre-registered price. The cap's range-high reference is **frozen at the signal
+bar** — it never ratchets with the rolling range while an entry is pending, because a
+rolling reference would quietly re-admit the chase (auditor pin). Unit tests must assert
+both bounds — signal close AND fill rate — against the frozen reference. The b′ record
+stands: no resting limits below the signal, no retest-limit variant in v1 of this family.
 
 **Exits (starting):**
 
@@ -88,7 +90,7 @@ variant in v1 of this family.
 | Hard stop | −4% (`stoploss=-0.04`); structural stop at range low capped −5% is on the knob list |
 | ROI ladder | `{0: 0.05, 240: 0.03, 480: 0.015}` — wider than v2's; winners here peak late |
 | Trailing | +1.2% trail after +3% offset |
-| Stagnation | Exit if profit <+1% after **8h** (32 candles). Audit note: the replay evidence says winners peak late (median ~14h; 73% of ≥4% movers after 6h) and v2's 6h cut fed its loss mechanism — the "breakouts work fast" hunch is unproven and does not get to set a tight default. 4h/12h are dev knobs. |
+| Stagnation | Exit if profit <+1% after **8h** (32 candles). Audit note: the replay evidence says winners peak late (median ~14h; 73% of ≥4% movers after 6h) and v2's 6h cut fed its loss mechanism — the "breakouts work fast" hunch is unproven and does not get to set a tight default. 4h/12h/off are dev knobs. |
 
 **Protections/bankroll (hard, unchanged):** CooldownPeriod, StoplossGuard, MaxDrawdown;
 $750 total / 3×$250; `--enable-protections` in every run.
@@ -102,12 +104,18 @@ $750 total / 3×$250; `--enable-protections` in every run.
   (`range_lookback`, `range_max_width`).
 - Pre-registered candidate values: `range_lookback` {32, 48, 96}; `range_max_width`
   {0.04, 0.06, 0.08}; `volume_mult` {1.5, 2.0, 3.0}; `max_extension` {0.01, 0.015, 0.02};
-  stagnation {4h, 8h, 12h}; stop {−4% fixed, structural range-low capped −5%}; ROI shape
+  stagnation {4h, 8h, 12h, off} (the "off" option exists because the cited median peak
+  is ~14h — beyond every timed value; auditor pin); stop {−4% fixed, structural
+  range-low capped −5%}; ROI shape
   {default, wider `{0:0.07, 360:0.04, 720:0.02}`, tighter `{0:0.03, 120:0.02, 360:0.01}`};
   trailing {default, off}. Any value outside these sets needs a recorded reason.
 - **Hard budget: 15 dev iterations total** (one iteration = both arms over the full dev
   window). No positive-expectancy config within 15 → family A dies in dev and the
   holdout stays sealed for the next family.
+- Dev diagnostics must log, per run, the fill-veto count and the 24h path of vetoed
+  entries. If the best movers gap through the cap, this family repeats b′'s
+  missed-mover failure from above instead of below — measure it, don't assume
+  (auditor pin).
 
 ## 4. Two universe arms (pre-registered)
 
@@ -136,7 +144,9 @@ month. Honest labels and caveats:
 - Even with the raised handicaps, backtest fills stay optimistic for breakout market
   orders; the paper phase (§5) is where real spreads get measured before any live talk.
 - `rank_pairs_for_month` stays the single source of truth for membership; arm D is a
-  parameterization of it (rank band + floor), not a duplicate.
+  new **mode** of it — rank-slice positions 31–100 first, then apply the floor, the
+  reverse order of arm L's floor-then-top-N. Implement as its own path with its own
+  tests; never by reusing arm L's logic (auditor pin).
 
 ## 5. Validation protocol (pre-registered)
 
@@ -144,7 +154,7 @@ month. Honest labels and caveats:
 |---|---|---|
 | **Pre-dev check** | — | Bound the survivorship hole before any run: pull Kraken's 2024–2026 delisting/removal notices and count USD pairs that traded in the dev/holdout windows but are gone today (audit's next-experiment). A large share gone — likeliest in arm D's band — gets recorded and hardens the suspicion applied to any later "pass." |
 | **Develop** | 2024-02 → 2025-08 (18 months; ranking months 2024-01 → 2025-07) | Iterate under §3 knob discipline, **hard budget 15 iterations**, every run logged in `docs/backtests.md` marked DEV with knob + hypothesis. Both arms run each time. No positive config within budget → family dies here and the holdout stays sealed for the next family. |
-| **Freeze** | — | The chosen config is written into this spec by amendment. After that, no signal/exit/param edits. |
+| **Freeze** | — | Freeze picks **ONE** config, written into this spec by amendment; after that, no signal/exit/param edits. Per-arm proceed rule (auditor pin): an arm goes to the holdout only if the frozen config is dev-positive **on that arm**. If no config is positive on both arms, freeze the one with the better pooled (both-arm) expectancy and only its positive arm proceeds — disclosed as a selection event; the widening this allows is bounded by the 15-run budget and the per-arm holdout bars. |
 | **Holdout — sealed kill test #1** | 2025-09 → 2026-01 (5 months, ~38% up-regime — judgeable) | **ONE run per arm** with the frozen config, graded by the §6 survival bar. Fail = arm dead. Survive = permission to proceed, **not approval** — survivor-only history biases this window toward passing, the same direction as the burned window (audit finding). Any post-peek change burns it permanently. |
 | **Kill test #2** | 2026-02 → 2026-07 (burned window) | One run per surviving arm. Fail = arm dead regardless of the holdout. Pass = weak corroboration only. |
 | **Paper — the verdict** | Aug 2026+, ≥2 weeks per master spec §9 | The first data free of survivorship and fill optimism — **this is what approves an arm.** Only for arms surviving everything above, only on Austin's word; live needs his explicit "I am ready to go live." |
@@ -189,8 +199,10 @@ lives there (§5), not here.
 - Regime audits must reconstruct the +45m informative offset (`verify_regime_gating.py`).
 - No new candle downloads needed before August; if one ever runs, `--dl-trades`
   conversion **overwrites** feathers — back up first (recorded 2026-07-20 incident).
-- New for this family: a unit test must assert the entry candle's close sits within
-  `max_extension` of the range high — the invariant that keeps A from becoming v1.
+- New for this family: unit tests must assert BOTH anti-chase bounds — the signal
+  candle's close within `max_extension` of the range high AND the fill-rate veto
+  against the signal-bar-frozen reference (§3) — the invariant that keeps A from
+  becoming v1.
 
 ## 8. Definition of done for this document
 
@@ -223,3 +235,12 @@ confirmed findings addressed in this revision:
 
 Also pinned per audit: arm-D construction order (rank-slice, then floor — §4); the
 "sealed" window's disclosed aggregate peek and the finite clean-window supply (§5).
+
+**Confirmation pass (same auditor, 2026-07-20): GO-to-gate.** All seven findings
+resolved, all pins resolved, nothing material broken. Its six carry-forward items —
+freeze the cap's range-high reference at the signal bar; define the per-arm freeze/
+proceed rule; add stagnation "off" to the grid; log fill-veto diagnostics in dev; sync
+§7 to the both-bounds rule; build arm D as its own ranking path — were folded into
+this spec text the same day (none were gate-blockers). The auditor's standing caveat
+for later readouts: a holdout fail under the strict §6 bar means "no edge clearing a
+strict bar on a survivor-flattered window," not proof no edge exists.
