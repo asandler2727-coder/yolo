@@ -198,3 +198,61 @@ Full analysis + independent research-auditor review (verdict: refutation endorse
 `docs/exit-path-analysis-2026-07-20.md`. The (b) spec update was withdrawn; the
 data-supported alternative (b′ = limit-entry deeper in the pullback, ~+2pp in-sample
 upper bound) awaits Austin's direction.
+
+---
+
+## b′ limit-entry, Feb–Jul 2026 IN-SAMPLE — 2026-07-20 — GATE FAIL (profit)
+
+**Design under test:** the approved b′ spec
+(`docs/superpowers/specs/2026-07-20-yolo-b-prime-limit-entry.md`): v2 unchanged except
+the entry rests as a limit at signal-time price × 0.98 with a 240-minute unfilled
+timeout. Single pre-registered configuration, no sweeps; one full run (plus one May
+smoke run of the same configuration to validate mechanics, disclosed). Harness as
+always: prior-month top-30 ranking, $250k/day floor, `--fee 0.004`,
+`--enable-protections`, result zips taken from freqtrade's own stdout.
+
+| Month | Trades | Profit % | Max DD % | Result zip (2026-07-20) |
+|---|---|---|---|---|
+| 2026-02 | 12 | −3.27 | 4.86 | `backtest-result-2026-07-20_06-40-39.zip` |
+| 2026-03 | 14 | −0.04 | 4.20 | `_06-40-46.zip` |
+| 2026-04 | 23 | −2.16 | 3.42 | `_06-40-53.zip` |
+| 2026-05 | 24 | −4.12 | 5.76 | `_06-41-01.zip` |
+| 2026-06 | 12 | −3.50 | 5.09 | `_06-41-08.zip` |
+| 2026-07 (to 15th) | 5 | −4.84 | 5.50 | `_06-41-15.zip` |
+
+**Totals: 90 trades, −17.92%, every month negative, worst monthly DD 5.76%.**
+Frequency: 3.45/wk overall (harness divisor); ~9.3/wk averaged over the ~9.7
+up-regime weeks → the amended frequency leg passes. **The profit leg fails.**
+
+**Mechanics verified (this is a real test of the design, not a broken run):**
+- `scripts/verify_fill_depth.py`: 89/90 fills are exact 2%-limit fills (median
+  discount 2.00%, max 2.02% = tick rounding). The 1 flagged fill (XCN/USD at
+  $0.00571) was checked by hand: the fill candle's unrounded limit is
+  0.98 × 0.00583 = 0.005713, which rounds on the pair's 1e-5 tick grid to exactly
+  the fill price — a genuine 2% limit fill 0.34 ticks from the unrounded value,
+  just past the verifier's 0.29-tick tolerance at this price scale. **All 90 fills
+  verified; no clamping.**
+- No `custom_price_max_distance_ratio` clamp: knob confirmed at 0.05 in the tmp
+  config, and the exact-2% discounts prove the limit survived unclamped.
+- `scripts/verify_regime_gating.py`: **all 90 entries opened in the up-regime.**
+- `scripts/count_signals.py`: 393 signal candles Feb–Jul (61/87/74/83/69/19 by
+  month) → 90 fills = **22.9% fill rate**.
+
+**Per-trade shape:** 53.3% win rate, avg win +1.48%, avg loss −2.97%, avg trade
+−0.60%, median hold 3.8h. Exits: 42 roi (+1.6% mean), 30 stagnation (−1.7%),
+15 stop (−4.8%), 3 trailing (+1.1%).
+
+**Why the audited +2pp upper bound collapsed to +0.21pp (vs v2's −0.81%/trade):**
+exactly the two erosion forces the spec §3 pre-registered. Missed fills: 77% of
+signals — including the straight-up movers that carried the oracle ceiling — never
+dipped 2% and never filled. Adverse selection: the fills are the signals that *did*
+keep falling. The 2%-cheaper entry did real work on the loss side (stops fell from
+24% to 17% of trades, avg loss −2.97 vs −3.60, DD roughly halved) but couldn't
+manufacture upside the filled subset didn't have.
+
+**Pre-registered verdict (spec §4):** failing the profit leg in-sample means **the
+pullback-in-uptrend family is exhausted** — entries at market lose to the shakeout,
+no mechanical exit fixes it (exit-path analysis), and entries below the shakeout
+lose the movers. Per the v2 brief §3 rules the next step, if any, is **one** tabled
+family via a short redesign note — Austin's call. No tuning, no deploy; protections
+never weakened. Feb–Jul remains burned as in-sample for this family.
