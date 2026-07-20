@@ -308,3 +308,21 @@ holdout results, hardest on arm D. Per spec §5 this hardens skepticism on any
 later "pass" — a dev-positive or holdout-surviving arm is *permitted to
 proceed*, never validated, and paper trading (survivorship-free) remains the
 only verdict.
+
+---
+
+## Family A DEV phase — spec 2026-07-20-yolo-family-a-range-breakout.md §5
+
+Window 2024-02→2025-08 (18 months; ranking months 2024-01→2025-07). Hard budget
+15 iterations; one knob per iteration, hypothesis logged BEFORE each run. Fees:
+arm L 0.0045, arm D 0.006. Holdout 2025-09→2026-01 SEALED. Stagnation exit off
+(Austin's gate amendment); hold/slot diagnostics mandatory. Survivorship note
+above applies to every row. Stake sizing note: freqtrade applies TODAY's Kraken
+minimum order sizes at historical prices, so some entries are skipped
+(STAKE-SKIP) that live trading would take — conservative direction, logged per
+run.
+
+| Iter | Date | Knob (vs best) | Hypothesis (pre-run) | Arm | Trades | Profit % | Worst mo DD % | Tr/up-wk | Vetoes | Skips | Med hold h | Slots max / %full | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 2026-07-20 | — (spec defaults) | Baseline: breakout-at-start placement clears fees in up-regime where pullback entries could not | L | | | | | | | | | |
+| 1 | 2026-07-20 | — (spec defaults) | same | D | | | | | | | | | |
