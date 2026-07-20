@@ -645,7 +645,11 @@ fee arithmetic: 0.9% (L) and 1.2% (D) round trip against a median 24h peak of
 *more* trades into that wall. That is a judgement about where the remaining
 headroom is, not a finding that no headroom exists.
 
-**Status: reviewed. See the independent review below — verdict: retire.**
+**Status: RETIRED — Austin's decision, 2026-07-20, on the review below.**
+Post-mortem: `docs/family-a-post-mortem.md`. Successor spec (draft, awaiting
+audit + Austin's gate): `docs/superpowers/specs/2026-07-20-yolo-family-b-momentum-continuation.md`.
+Budget closed at 3 of 15 iterations; the holdout 2025-09→2026-01 was never
+opened and passes intact to family B.
 The stopping call remains Austin's.
 
 ---
