@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from replay_family_a import (ARM_FEES, ROI_SHAPES, load_dev_trades,  # noqa: E402
-                             ratio_for_price, simulate, window_for)
+                             simulate, window_for)
 from verify_breakout_cap import candles as signal_candles  # noqa: E402
 
 STRUCT_CAP = -0.05      # spec s3: structural stop is capped at -5%
@@ -98,19 +98,22 @@ def main() -> None:
         windows[t.Index] = w
     stops = structural_stops(trades)
 
-    # How tight is the structural stop, as a net ratio from entry?
+    # How tight is the structural stop? Compare in PRICE space: the baseline
+    # stop sits at entry*0.96 (gross -4%), the cap at entry*0.95 (gross -5%).
+    # (The first version of this block compared a net-of-fees depth against
+    # those gross levels and reported "looser on 69% / cap binds on 46%" —
+    # both wrong; corrected 2026-07-20 review.)
     depth = pd.Series({
-        i: ratio_for_price(trades.loc[i, "open_rate"], stops[i],
-                           ARM_FEES[trades.loc[i, "arm"]])
+        i: stops[i] / trades.loc[i, "open_rate"] - 1
         for i in trades.index if not pd.isna(stops[i])})
     n_missing = int(stops.isna().sum())
-    n_capped = int((depth <= STRUCT_CAP).sum())
+    n_capped = int((depth <= STRUCT_CAP + 1e-9).sum())
 
     print(f"Family A dev entries: {len(trades)} "
           f"(L={sum(trades.arm == 'L')}, D={sum(trades.arm == 'D')})")
     print(f"Structural stop resolved for {len(depth)}; {n_missing} had no "
           f"signal-bar range (excluded from the structural rows only).\n")
-    print("Structural stop depth from entry (net of fees):")
+    print("Structural stop depth from entry (gross, same basis as the -4% stop):")
     print("  " + "  ".join(f"p{int(q * 100)}={depth.quantile(q):+.2%}"
                            for q in (0.1, 0.25, 0.5, 0.75, 0.9)))
     print(f"  tighter than the -4% baseline on {(depth > -0.04).mean():.0%} of "

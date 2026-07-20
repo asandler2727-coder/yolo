@@ -477,18 +477,25 @@ first) while losers pay the full stop (−4.86%) — had never actually been run
 engine, same mechanic, only the per-trade stop *level* changes, so it sits
 inside the 0.083%/trade envelope.
 
-**The structural stop is not what it was assumed to be.** Measured over all
-1563 entries, its depth from entry is p25 −5.80% / **p50 −4.78%** / p75 −3.74%.
-It is *looser* than the −4% baseline on **69%** of trades, and the −5% cap
-binds on 46%. Real coils are wider than the mechanism assumed and round-trip
-fees add ~1%. It helps, and by almost nothing: best cell arm L `roi=wider
-trail=off structural` **−0.79%/trade** (vs −0.83% for the same shape at −4%),
-arm D −1.05% (vs −1.07%). It does exactly what it was built to do — average
-loss −4.86% → −4.38% — and the win rate falls 52% → 50%, so the net barely
-moves. The same diffuse-loss signature as the stagnation cut.
+**The structural stop's published depth numbers were wrong — corrected
+2026-07-20 by the independent review.** The first version compared a
+net-of-fees depth against gross stop levels, which shifted every figure about
+one fee-round-trip deeper. Measured in price space — the same basis as the −4%
+stop — the depth is p25 −4.86% / **p50 −3.79%** / p75 −2.74%; it is *tighter*
+than the −4% baseline on **55%** of trades and the −5% cap binds on **22%**
+(`stats_check.py` section 3 and the corrected `structural_stop.py` agree). So
+the structural stop is roughly what its mechanism assumed — a coil-floor stop
+slightly tighter than −4% on about half the trades — and the earlier "looser
+than assumed" narrative was an artifact of the unit error. The outcome cells
+below were always computed in price space and stand unchanged: best cell arm L
+`roi=wider trail=off structural` **−0.79%/trade** (vs −0.83% for the same
+shape at −4%), arm D −1.05% (vs −1.07%). It does what it was built to do —
+average loss −4.86% → −4.38% — and the win rate falls 52% → 50%, so the net
+barely moves. The same diffuse-loss signature as the stagnation cut.
 
 **Stop-depth sweep — diagnostic, outside the pre-registered grid.** Because the
-structural stop turned out loose, it never tested the tight-stop idea. This
+structural stop hugs the −4% level (median −3.79%), it never tested a
+genuinely tight stop. This
 does, in full generality (roi=wider, trailing off, per-trade net):
 
 | stop | −1.5% | −2% | −2.5% | −3% | −4% | −5% | −6% | −8% | none |
@@ -562,6 +569,18 @@ only in which coins and what fee. This is the *second* time family A has done
 this (the stagnation cut split 4h on L against 12h on D), and both times the
 knob turned out dead.
 
+*Correction (2026-07-20, independent review): the ranking argument above
+overstates its evidence.* Bootstrapping the six pairwise cell differences
+(`scripts/path_analysis/stats_check.py` section 2) shows every one straddles
+zero — e.g. arm L 32 vs 48 is +0.29pp with a 95% interval of [−0.02, +0.61].
+The rankings order statistically indistinguishable numbers, so "arm L's best
+is arm D's worst" is a pattern read into noise and should not be cited as
+evidence that the knob is dead. What the data does support is simpler and
+stronger: the knob has no detectable effect on per-trade expectancy on either
+arm, while every cell is decisively negative — all six cells' 95% intervals
+exclude zero under both a plain and a month-clustered bootstrap (see the
+review section below).
+
 **My pre-registered prediction was wrong, in a way worth recording.** I logged
 32 as the weaker value and 96 as the one carrying a live mechanism ("bigger
 base, higher conviction, longer hold suits the fee drag"). Arm L did the
@@ -626,5 +645,91 @@ fee arithmetic: 0.9% (L) and 1.2% (D) round trip against a median 24h peak of
 *more* trades into that wall. That is a judgement about where the remaining
 headroom is, not a finding that no headroom exists.
 
-**Status: recommendation pending review, not a settled verdict.** The stopping
-call is Austin's, and it is going to an independent reviewer first.
+**Status: reviewed. See the independent review below — verdict: retire.**
+The stopping call remains Austin's.
+
+---
+
+## Independent review — 2026-07-20 (Fable 5) — VERDICT: retire family A
+
+Scope: re-ran every diagnostic, audited the replay engine, computed the
+intervals the DEV table asserted without them, and measured the one question
+left open — whether the three untested loosening cells could change the
+outcome. New scripts: `stats_check.py` (bootstrap intervals; structural-stop
+depth recomputation) and `loosening_gradient.py` (expectancy gradient toward
+each loosened boundary). Outputs saved beside the other diagnostics.
+
+**1. The engine holds, and no conclusion sits inside its error band.** The
+replay reproduces the saved diagnostic byte-for-byte on the pinned iteration-1
+population: 1563 trades, mean absolute error 0.083%/trade (p95 0.35%) against
+the 0.10% gate. Fee arithmetic matches freqtrade's spot formula (fees both
+sides). The within-candle ordering (trailing ratchets off the high before the
+low is tested; ROI beats a ratcheted trailing stop, loses to a hard stop) was
+pinned by crosstab against 1563 recorded exits. The gap between the best cell
+anywhere (−0.61%/trade, a real backtest, not a replay) and breakeven is about
+eight times the mean error — nothing flips inside the band.
+
+**2. One durability claim was wrong, and the failure was silent, not safe.**
+The session ledger said a re-run of `replay_family_a.py` would "hard-fail its
+selection count check" now that iteration 3 overwrote
+`rolling_summary_{L,D}.json`. Verified false: the committed selection logic
+picks the latest zips per month — the iteration-3 population (689/659) — and
+its cross-check passes against the overwritten summaries, silently analyzing
+the wrong trades under a "baseline" banner. Fixed by pinning selection to the
+`backtest_baseline_iter1` snapshot's zip manifest and cross-checking against
+the snapshot's summaries; the re-run then reproduces the saved output exactly.
+
+**3. The structural-stop depth description had a unit error** (net-of-fees
+depth compared against gross levels). Corrected above and in
+`structural_stop.py`; the sweep cells stand; the saved diagnostic output was
+regenerated.
+
+**4. The negative result is statistically solid — not "cannot tell".**
+Bootstrap 95% intervals on mean per-trade net, all six iteration cells:
+every interval excludes zero, iid and month-clustered alike. Baseline arm L
+−0.90% [−1.28, −0.58] clustered; arm D −1.28% [−1.86, −0.77]; the least-bad
+cell (L, lookback 32) −0.61% [−1.21, −0.17]. 15–18 of 19 dev months negative
+in every cell. Frequency passes everywhere; the profit failure is real.
+
+**5. The arm-ranking inference was noise (correction above), and the
+`range_lookback` knob shows no detectable effect on expectancy in any
+direction.**
+
+**6. The three untested loosening cells cannot rescue the family — now
+measured, not judged** (`loosening_gradient.py`). Inside the recorded
+population, expectancy bucketed toward each loosened boundary:
+`range_width` band 0.045–0.06 → −0.82%/trade; `vol_ratio` band 2.0–2.5 →
+−0.91%; only `extension` shows a genuine monotone gradient (−1.21% far below
+the cap → −0.25% in the 1.0–1.5% band, n=135, itself within noise of zero).
+The marginal band just past each boundary is bounded by these numbers, and
+the gate arithmetic is decisive because loosening keeps every current trade:
+with arm L's core at 843 × −0.90%, newly admitted trades would need to
+average **+9.0%/trade** if loosening adds 10% more trades, +3.6% at 25%,
++1.8% at 50% — against observed neighboring bands of −0.25% to −0.91%.
+No pre-registered loosening cell can pass the gate. Spending iterations 4–6
+on them would be theater; the monotone-tightening pattern argued for running
+them only until the gradient was measured.
+
+**7. Fee decomposition — the framing claim is arithmetically right, and
+sharper than stated.** Arm L: −0.90% net + 0.90% round-trip fees ≈ **0.0%
+gross expectancy**. Arm D: −1.28% + 1.20% ≈ −0.1% gross. Under realistic
+exits these entries have no gross edge at all; fees turn zero into the loss.
+This is the cleanest statement of why no knob worked, and it is the design
+constraint family B inherits: the signal must either predict moves large
+enough to clear ~1% costs or trade somewhere costs are lower.
+
+**8. Verified clean elsewhere:** anti-chase cap holds on all three iteration
+populations when re-derived with each run's own lookback (1563 + 1612 + 1348
+fills OK); zero down-regime entries on all 1563 baseline trades; `range_high`
+/ `range_low` are shift(1)-lagged (no look-ahead); the survivorship bound and
+its direction (flatters results, so it strengthens a negative verdict) stand;
+37 tests pass; `momentum_signals.py` unchanged at the frozen defaults.
+
+**Verdict: retire family A in dev with 3 of 15 iterations spent.** The budget
+does not force a stop, but every remaining pre-registered cell is either
+measured negative on the validated engine or arithmetically unable to flip
+the gate. The holdout stays sealed and passes intact to family B. The
+strongest argument against retiring is the extension gradient in point 6 —
+entries nearest the chase cap lose least, and that band alone is within noise
+of breakeven — but exploiting it means designing a different entry around
+extended breakouts, a family-B hypothesis, not a family-A iteration.

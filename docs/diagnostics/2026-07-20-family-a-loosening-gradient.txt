@@ -1,0 +1,30 @@
+Family A dev entries: 1563 scored; population expectancy -0.94%/trade (exit: ROI wider, trail off, stop -4%).
+
+--- range_width (loosening target: range_max_width 0.06 -> 0.08) --------------------
+  band                       n    /trade
+  [0.000, 0.020 )        198    -0.90%
+  [0.020, 0.030 )        400    -0.99%
+  [0.030, 0.045 )        531    -1.02%
+  [0.045, 0.061 )        434    -0.82%
+
+--- vol_ratio (loosening target: volume_mult 2.0 -> 1.5) --------------------
+  band                       n    /trade
+  [2.000, 2.500 )        301    -0.91%
+  [2.500, 3.000 )        204    -0.81%
+  [3.000, 5.000 )        461    -1.05%
+  [5.000, inf   )        597    -0.93%
+
+--- extension (loosening target: max_extension 0.015 -> 0.02) --------------------
+  band                       n    /trade
+  [0.000, 0.003 )        704    -1.21%
+  [0.003, 0.006 )        456    -0.99%
+  [0.006, 0.010 )        268    -0.50%
+  [0.010, 0.015 )        135    -0.25%
+
+What a loosened cell would need to PASS the gate (arm L):
+  admit +10% more trades (  84): newly admitted trades must average +9.03%/trade just to reach zero
+  admit +25% more trades ( 210): newly admitted trades must average +3.61%/trade just to reach zero
+  admit +50% more trades ( 421): newly admitted trades must average +1.80%/trade just to reach zero
+  admit +100% more trades ( 843): newly admitted trades must average +0.90%/trade just to reach zero
+
+Every number in-sample on the dev window; slot contention ignored; seal truncation as in replay_family_a.py.

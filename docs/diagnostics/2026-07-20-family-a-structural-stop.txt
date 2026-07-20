@@ -1,9 +1,9 @@
 Family A dev entries: 1563 (L=843, D=720)
 Structural stop resolved for 1563; 0 had no signal-bar range (excluded from the structural rows only).
 
-Structural stop depth from entry (net of fees):
-  p10=-6.13%  p25=-5.80%  p50=-4.78%  p75=-3.74%  p90=-3.02%
-  tighter than the -4% baseline on 31% of trades; the -5% cap binds on 46%
+Structural stop depth from entry (gross, same basis as the -4% stop):
+  p10=-5.00%  p25=-4.86%  p50=-3.79%  p75=-2.74%  p90=-2.01%
+  tighter than the -4% baseline on 55% of trades; the -5% cap binds on 22%
 
 --- arm L ------------------------------------------------------------------
   exit config                            n   /trade   win%     avgW     avgL

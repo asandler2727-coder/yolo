@@ -55,6 +55,12 @@ import pandas as pd  # noqa: E402
 
 BASE = Path("user_data/backtest_results")
 DATA = Path("user_data/data/kraken")
+# Iteration-1 baseline snapshot: later runs overwrote rolling_summary_{L,D}.json
+# and became "latest per month" in BASE, so selecting from BASE alone would
+# silently return a NON-baseline population that still passes the count check
+# (it matches the overwritten summaries). Selection is therefore pinned to the
+# snapshot's zip manifest and cross-checked against the snapshot's summaries.
+BASELINE_SNAPSHOT = Path("user_data/backtest_baseline_iter1")
 
 # --- holdout seal -----------------------------------------------------------
 SEAL_TS = pd.Timestamp("2025-09-01", tz="UTC")
@@ -224,8 +230,13 @@ def load_dev_trades() -> pd.DataFrame:
     per-month trade counts must then match rolling_summary_{L,D}.json exactly,
     which is what proves this is the iteration-1 baseline set and not a mix.
     """
+    manifest = {Path(line).name for line in
+                (BASELINE_SNAPSHOT / "iter1_zip_manifest.txt")
+                .read_text().splitlines() if line.strip()}
     picked: dict[tuple[str, str], tuple[str, list]] = {}
     for zp in sorted(BASE.glob("*.zip")):
+        if zp.name not in manifest:
+            continue                                    # not in the iter-1 snapshot
         data, whitelist = zip_meta(zp)
         start = pd.Timestamp(data["backtest_start"], tz="UTC")
         end = pd.Timestamp(data["backtest_end"], tz="UTC")
@@ -250,7 +261,8 @@ def load_dev_trades() -> pd.DataFrame:
     # cross-check against the recorded baseline summaries
     problems = []
     for arm in ("L", "D"):
-        summary = json.loads((BASE / f"rolling_summary_{arm}.json").read_text())
+        summary = json.loads(
+            (BASELINE_SNAPSHOT / f"rolling_summary_{arm}.json").read_text())
         expected = {m["month"]: m["trades"] for m in summary["per_month"]}
         got = df[df.arm == arm].groupby("month").size().to_dict()
         if got != expected:
