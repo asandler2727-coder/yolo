@@ -6,7 +6,10 @@
 
 **v2 redesign brief (authoritative for entry/exit + gate):**  
 `docs/superpowers/specs/2026-07-19-yolo-v2-pullback-redesign.md`  
-If this file and the v2 brief disagree on strategy math, the **v2 brief wins**.  
+**b′ amendment (authoritative for entry *pricing*, 2026-07-20, pending Austin's approval):**  
+`docs/superpowers/specs/2026-07-20-yolo-b-prime-limit-entry.md`  
+If this file and the v2 brief disagree on strategy math, the **v2 brief wins**; on entry
+pricing, the **b′ amendment wins**.  
 §6 risk and §8 security in *this* file still win over everything else.
 
 ## 1. Goal

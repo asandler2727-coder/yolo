@@ -2,6 +2,9 @@
 
 **Date:** 2026-07-19  
 **Status:** Approved direction by Austin; this document is the redesign brief for implementation  
+**Amended 2026-07-20:** entry *pricing* (market → resting limit −2%) is amended by
+`2026-07-20-yolo-b-prime-limit-entry.md` after the audited exit-path analysis; that file
+wins on entry pricing. Signals, exits, gate, and everything else here stand.  
 **Repo:** https://github.com/asandler2727-coder/yolo  
 **Supersedes:** MemeMomentum **v1** entry/exit hypothesis in the 2026-07-18 design spec §5  
 **Does not supersede:** §6 risk guardrails, §8 security rules, architecture (§3), universe (§4), sentiment phase (§7)
