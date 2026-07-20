@@ -136,3 +136,56 @@ is Austin's call: (a) wait for the Apr–Jul OOS run before any judgment, (b) on
 design change (e.g. exit asymmetry — the −4:+3 R:R with fees is the visible culprit) via a
 spec update, or (c) table v2 and open the next tabled family. No deployment; gate unchanged;
 protections intact.
+
+## v2 pullback-in-uptrend, Apr–Jul 2026 OUT-OF-SAMPLE — 2026-07-20 — GATE FAIL (profit)
+
+First run on the reserved out-of-sample window (Apr 1 – Jul 15; data ends 2026-07-14/15,
+so 2026-07 is a half month). Identical v2 params to the in-sample run — nothing tuned in
+between. Run: `rolling_backtest.py 2026-04 2026-07` at `--fee 0.004 --enable-protections`,
+top-30-by-prior-month-volume universe. Plan: `docs/superpowers/plans/2026-07-20-yolo-v2-oos-validation.md`.
+
+| Month | Trades | Profit % | Max DD % | Result file |
+|---|---|---|---|---|
+| 2026-04 | 17 | -9.03 | 9.34 | backtest-result-2026-07-20_05-26-27.zip |
+| 2026-05 | 44 | -3.55 | 6.21 | backtest-result-2026-07-20_05-26-35.zip |
+| 2026-06 | 11 | -6.91 | 6.91 | backtest-result-2026-07-20_05-26-41.zip |
+| 2026-07 (half) | 11 | -4.25 | 5.21 | backtest-result-2026-07-20_05-26-48.zip |
+
+Total: 83 trades over 14.9 real weeks, **−23.76% summed monthly profit**, worst monthly
+drawdown **9.34%**, gate **FAIL** on the profit leg. Every month negative.
+
+**Data provenance (two repairs, both verified before the run):**
+1. freqtrade's end-of-download trades→OHLCV conversion *overwrites* each 15m feather with
+   trades-derived candles only (confirmed in the 2026.4 source: `ohlcv_store(data=ohlcv)`,
+   no merge); gap-pair trades start 2026-04-01, so Jan–Mar candles would have been wiped —
+   and were (post-conversion BTC feather spanned Apr 1 → Jul 15 only). Repaired from the
+   pre-conversion backup via `scripts/merge_15m_backup.py` (574 pairs regained history;
+   probes 0 duplicate dates; BTC seam Mar 30–Apr 2 = 384/384 candles; Apr 1–Jul 15 =
+   10,080/10,080; all four ranking months returned a full 30 pairs, majors on top).
+2. DOGE/USD has an unfixable Apr–May hole: Kraken's API serves this pair's trades only
+   from 2026-06-01 (`--erase` cannot recover earlier). Ranking excludes DOGE correctly for
+   May and June, re-includes it for July; in April it ranked #6 on March volume but had no
+   April candles, so April effectively traded 29 pairs (one burned slot). Recorded, not
+   repaired — no API source exists.
+
+**Regime audit clean (`verify_regime_gating.py` on all 4 zips).** Window 44.4% up-regime /
+55.6% down (BTC −4.4% over the window); **all 83 entries opened in the up-regime** — no
+leak. In-regime frequency **12.6 trades/wk** (6.6 up-weeks) → the amended frequency leg
+passes. (Overall: 4.78/wk by the harness's four-full-month divisor, ~5.6/wk over the real
+14.9 weeks — the harness number understates because July is a half month.)
+
+**Per-trade shape replicates in-sample: 53% win rate (44/83), −0.86% avg trade**
+(in-sample: 58%, −0.69%). Same mechanism — winners capped by the 3/2/1% ROI ladder, losers
+run to the −4% stop, ~0.8% round-trip taker fees — now confirmed on unseen data, in a
+window with *more* up-regime exposure than in-sample (44% vs 37%).
+
+**Combined verdict (in-sample + OOS): v2 as specified has replicated negative expectancy
+in up-regimes.** Feb–Jul: 119 trades, −32.1% summed monthly profit, max monthly DD 9.34%,
+both windows 100% in-regime entries. The risk redesign did hold — v1 lost −74% in 2 months
+with ~48% DD; v2 loses −32% across 5.5 months with DD ≤9.3% — but the edge is negative and
+consistent. **Apr–Jul is now burned as OOS:** any redesign informed by these numbers must
+treat Feb–Jul as in-sample and validate on fresh (Aug+) data. Per spec: no tuning, no
+deploy, protections intact. Direction is Austin's call — (a) judge v2 on the combined
+record, (b) one conceptual design change via spec update (exit asymmetry is the replicated
+culprit: capped +3% winners cannot pay for −4% losers plus 0.8% fees at a ~55% win rate),
+or (c) table v2 and open the next tabled family.
