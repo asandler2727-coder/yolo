@@ -128,6 +128,10 @@ Never loosen profit or fee assumptions. Never disable protections in the harness
 
 These are the other starting points discussed with Austin. **Status: tabled.** Revisit only if primary fails after a honest OOS attempt, or Austin prioritizes a different product bet.
 
+> **2026-07-20:** the primary (and its b′ amendment) failed with good process — pullback
+> family exhausted. Austin opened **family A** with two universe arms:
+> `2026-07-20-yolo-family-a-range-breakout.md`. B and C stay tabled.
+
 | ID | Family | Core idea | When it might beat primary | Main risks on this stack | Revisit trigger |
 |---|---|---|---|---|---|
 | **A** | Range breakout + volume | Enter when price breaks a multi-bar range high **with** volume ≥1.5–2× avg; optional retest entry | Strong trending months; memes that coil then run | Late breakouts + fees; fakeouts in chop; easy to recreate v1 chase if range is defined as “already up 3%” | Primary sits out forever or misses all real pumps even in up-regime |
