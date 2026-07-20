@@ -69,3 +69,14 @@ def test_hold_stats_from_trade_durations():
     hs = hold_stats(trades)
     assert hs["median_h"] == pytest.approx(2.0)
     assert hs["max_h"] == pytest.approx(8.0)
+
+
+def test_parse_veto_lines_extracts_pair_rates_and_time():
+    from veto_paths import parse_veto_lines
+    vetoes = parse_veto_lines(LOG)
+    assert len(vetoes) == 2
+    assert vetoes[0]["pair"] == "WIF/USD"
+    assert vetoes[0]["fill"] == pytest.approx(2.31)
+    assert vetoes[0]["cap"] == pytest.approx(2.29)
+    assert str(vetoes[0]["time"]) == "2024-11-03 04:15:00+00:00"
+    assert vetoes[1]["fill"] == pytest.approx(1.1e-05)

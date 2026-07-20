@@ -324,5 +324,30 @@ run.
 
 | Iter | Date | Knob (vs best) | Hypothesis (pre-run) | Arm | Trades | Profit % | Worst mo DD % | Tr/up-wk | Vetoes | Skips | Med hold h | Slots max / %full | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 2026-07-20 | — (spec defaults) | Baseline: breakout-at-start placement clears fees in up-regime where pullback entries could not | L | | | | | | | | | |
-| 1 | 2026-07-20 | — (spec defaults) | same | D | | | | | | | | | |
+| 1 | 2026-07-20 | — (spec defaults) | Baseline: breakout-at-start placement clears fees in up-regime where pullback entries could not | L | 843 | −76.40 | 9.19 | 21.7 | 10 | 99 | 12.2 | 10 / 3.5% | FAIL — 17/19 months negative |
+| 1 | 2026-07-20 | — (spec defaults) | same | D | 720 | −91.80 | 10.37 | 18.5 | 11 | 229 | 12.6 | 10 / 4.8% | FAIL — 18/19 months negative |
+
+**Iteration 1 (baseline) readout.** Profit % is the sum of monthly percents
+(harness convention). Result zips `2026-07-20_08-25-17`…`08-27-17` (L) and
+`08-27-34`…`08-29-53` (D); summaries `rolling_summary_L.json` / `_D.json`.
+Mechanics verified before reading anything into the numbers:
+`verify_breakout_cap.py` 1563/1563 fills obey both frozen-cap bounds (max
+fill/cap 0.9998); `verify_regime_gating.py` 1563/1563 entries in up-regime.
+The losses are genuine in-regime negative expectancy, not a leak.
+
+- **Loss shape (both arms):** the familiar capped-winner/full-loser asymmetry.
+  L: 58% win, avg win +1.97%, avg loss −4.82%, avg trade −0.90%; exits roi 411
+  / stop 351 / trailing 76 / force 5. D: 55% win, +1.94% / −5.16%, −1.28%/trade;
+  roi 340 / stop 325 / trailing 53. 42–45% of trades die at the −4% stop; wins
+  mostly exit at the late small ROI rungs (median hold ~12h).
+- **Only positive month for BOTH arms: 2024-11** (L +0.95, D +4.20) — the smoke
+  month; it is an outlier, not representative.
+- **Anti-chase veto works as designed:** 21 vetoes across both arms
+  (`veto_paths.py`): median 24h close of vetoed fills −2.94% (median MAE
+  −5.40%) — the cap refused bad chases; no missed-mover failure from above.
+- **Slots/holds (stagnation-off cost):** mean concurrency 1.1–1.3 of 10 slots,
+  at-capacity only 3.5–4.8% of the span; max holds 222h (L) / 592h (D). Slot
+  starvation is not the problem at baseline.
+- **STAKE-SKIP 99 (L) / 229 (D):** today's Kraken minimum order sizes applied
+  at 2024–25 prices skip ~10–24% of would-be entries — conservative artifact,
+  noted above the table.
