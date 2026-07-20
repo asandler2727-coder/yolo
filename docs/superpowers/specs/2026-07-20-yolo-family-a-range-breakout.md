@@ -92,8 +92,19 @@ stands: no resting limits below the signal, no retest-limit variant in v1 of thi
 | Trailing | +1.2% trail after +3% offset |
 | Stagnation | **Off by default** (Austin's gate amendment, 2026-07-20: post-entry consolidation before continuation is his pre-registered hypothesis, and the replay evidence leans his way — winners peak late, median ~14h, 73% of ≥4% movers after 6h; v2's 6h cut fed its loss mechanism). Timed cuts {4h, 8h, 12h} stay dev knobs. Cost to measure, not assume: with no time cut, a flat trade can park a $250 slot for days (nothing exits between −4% and +1.5% after the ROI tail) — dev diagnostics must log median/max hold and slot occupancy. |
 
-**Protections/bankroll (hard, unchanged):** CooldownPeriod, StoplossGuard, MaxDrawdown;
-$750 total / 3×$250; `--enable-protections` in every run.
+**Protections (hard, unchanged):** CooldownPeriod, StoplossGuard, MaxDrawdown;
+`--enable-protections` in every run. Their trade-count triggers are untouched — at the
+smaller per-trade size below they bind sooner relative to capital, i.e. stricter, not
+weakened.
+
+**Bankroll/sizing (Austin's gate amendment, round 2):** $750 total cap stays. Per-trade
+stake is **10% of current total equity** (via `custom_stake_amount`), with
+`max_open_trades: 10` — replaces 3×$250 fixed. At $750 that is $75/trade: above Kraken
+pair minimums (the rare entry whose stake would fall below a pair minimum is skipped
+and logged), risk per −4% stop drops from ~1.3% to ~0.4% of the portfolio, smaller
+clips ease the thin-book concern (especially arm D), and sizing scales with the
+bankroll without a respec if Austin later raises the cap — the raise itself stays his
+explicit call.
 
 **Knob discipline (pre-registered; closes the audit's unbounded-search finding):**
 
@@ -251,6 +262,14 @@ auditor-approved grid, so no re-audit) with hold/slot-occupancy diagnostics made
 mandatory in dev. Shorts were raised and **tabled with prerequisites** (§10) — not
 added to family A.
 
+**Austin's gate amendments (2026-07-20, spec-review round 2):** position sizing changed
+from 3×$250 fixed to **10% of current equity per trade, max 10 open** (§3; master spec
+§6 amended in place). No re-audit: this alters risk mechanics, not the validation
+design — every gate is percentage-based and stake-independent. Comparability note for
+future readouts: drawdown figures from v1/v2/b′ (3×$250) are not directly comparable to
+family-A runs (10×10%), and ten slots means fewer signals skipped for want of a free
+slot than three did. Shorts confirmed **no-go for now** by Austin (§10).
+
 ## 10. Shorts (raised at Austin's gate 2026-07-20 — tabled)
 
 "Catch both sides" is recorded, not built. Blockers, in order: Kraken **spot cannot
@@ -264,3 +283,4 @@ its own decision, not a family-A rider. Prerequisites to reopen: (1) family A's 
 side reaches a verdict; (2) venue + data feasibility verified; (3) Austin explicitly
 reopens the non-goal accepting the changed risk class. Until then the regime filter is
 the both-sides mechanism: it sits out bears instead of paying to trade them.
+**Austin confirmed at the gate: no go for now (2026-07-20).**

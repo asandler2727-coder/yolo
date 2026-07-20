@@ -111,14 +111,18 @@ to force frequency.
 
 ## 6. Risk guardrails (hard-coded)
 
-- **Bankroll cap:** $750 total. `max_open_trades: 3`, fixed stake $250/trade. The bot cannot
-  deploy more than the cap.
+- **Bankroll cap:** $750 total. The bot cannot deploy more than the cap.
+  **Amended 2026-07-20 (Austin, family-A spec gate):** sizing is now **10% of current
+  total equity per trade, `max_open_trades: 10`** (was `max_open_trades: 3`, fixed
+  $250/trade) — scales with the bankroll if Austin later raises the cap; the raise
+  itself stays his explicit call. Entries whose 10% stake would fall below the pair's
+  Kraken minimum are skipped and logged.
 - **Freqtrade protections (never disabled):**
   - `CooldownPeriod` — no immediate re-entry after a stop-loss.
   - `StoplossGuard` — halts trading after a burst of consecutive stop-loss hits.
   - `MaxDrawdownProtection` — full stop if total drawdown exceeds ~15%; requires human restart.
 - **Kill switches:** stop button in FreqUI; `docker compose down` on the PC.
-- **Live starts at half stakes** ($125/trade) for the first two weeks of live operation.
+- **Live starts at half stakes** (5% of equity/trade) for the first two weeks of live operation.
 
 ## 7. Phase 2 — Sentiment Whitelist Advisor (Grok / X)
 
