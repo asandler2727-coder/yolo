@@ -17,7 +17,7 @@ DEFAULT_PARAMS = {
     # Range coil on the 15m entry stream: the PRIOR `range_lookback` candles,
     # current bar excluded via shift(1) — the breakout candle must never be
     # part of the range it breaks out of.
-    "range_lookback": 48,       # 48 x 15m = 12h
+    "range_lookback": 32,       # ITER 2 SWEEP (frozen default is 48 = 12h)
     "range_max_width": 0.06,    # (high - low) / low of the range
     # Anti-chase: entry only within this fraction above the range high; also
     # the fill-veto cap, frozen at the signal bar (confirm_trade_entry).

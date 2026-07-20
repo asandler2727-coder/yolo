@@ -326,8 +326,8 @@ run.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | 2026-07-20 | — (spec defaults) | Baseline: breakout-at-start placement clears fees in up-regime where pullback entries could not | L | 843 | −76.40 | 9.19 | 21.7 | 10 | 99 | 12.2 | 10 / 3.5% | FAIL — 17/19 months negative |
 | 1 | 2026-07-20 | — (spec defaults) | same | D | 720 | −91.80 | 10.37 | 18.5 | 11 | 229 | 12.6 | 10 / 4.8% | FAIL — 18/19 months negative |
-| 2 | 2026-07-20 | `range_lookback` 48→32 | Shorter 8h coil fires more often on fresher structure; expected to LOSE, since coil quality measured backwards | L | PENDING | | | | | | | | |
-| 2 | 2026-07-20 | `range_lookback` 48→32 | same | D | PENDING | | | | | | | | |
+| 2 | 2026-07-20 | `range_lookback` 48→32 | Shorter 8h coil fires more often on fresher structure; expected to LOSE, since coil quality measured backwards | L | 884 | −53.97 | 10.22 | 22.8 | 10 | 91 | 11.2 | 10 / 4.7% | FAIL — 15/19 mo neg; avg trade −0.61% (base −0.90%) |
+| 2 | 2026-07-20 | `range_lookback` 48→32 | same | D | 728 | −96.87 | 9.30 | 18.7 | 11 | 226 | 10.8 | 10 / 4.8% | FAIL — 18/19 mo neg; avg trade −1.33%, WORSE than base |
 | 3 | 2026-07-20 | `range_lookback` 48→96 | Longer 24h base is the strongest pre-registered case: bigger base, fewer and higher-conviction breakouts, and holding longer is the one direction fees favour | L | PENDING | | | | | | | | |
 | 3 | 2026-07-20 | `range_lookback` 48→96 | same | D | PENDING | | | | | | | | |
 
