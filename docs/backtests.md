@@ -737,3 +737,45 @@ strongest argument against retiring is the extension gradient in point 6 —
 entries nearest the chase cap lose least, and that band alone is within noise
 of breakeven — but exploiting it means designing a different entry around
 extended breakouts, a family-B hypothesis, not a family-A iteration.
+
+---
+
+## Family B PHASE 0 — gross-edge kill gate — logged 2026-07-22 BEFORE the run
+
+Spec: `docs/superpowers/specs/2026-07-20-yolo-family-b-momentum-continuation.md`
+§5 (APPROVED by Austin 2026-07-22). Plan with the full pre-registered analysis
+decisions: `docs/superpowers/plans/2026-07-22-family-b-phase0.md`. Entry-only
+candle replay — no freqtrade run, no exits, **no iteration spent** (budget
+stays 0 of 10). Dev window 2024-02→2025-08; holdout sealed; seal guard
+asserted in-code.
+
+**Hypothesis (pre-run).** Confirmed escapes — close 1–4% above the prior 24h
+high on ≥2× volume, in a BTC up-regime — carry positive gross forward returns
+over 1–4 days, large enough to clear the arm's full round trip (0.9% L /
+1.2% D). Seeded by family A's monotone extension gradient (−0.25% net,
+positive gross, in the 1.0–1.5% band, n=135, in-sample). Expected shape if
+true: the per-band gradient stays monotone past 1.5%, and longer horizons
+help (the one direction fees favor).
+
+**Falsifier, fixed in advance.** Selection runs over the full pre-registered
+81-cell × 2-arm × 3-horizon grid (all 81 cells are well-formed; looks with
+n < 40 are published but ineligible). The winning look's **month-clustered
+max-statistic bootstrap 95% lower bound** (B=2000, seed 20260722 — each
+resample re-runs the entire selection) must clear its arm's full round trip.
+A raw mean above the round trip with an unadjusted interval is a FAIL. If the
+bound does not clear: **family B dies at zero iterations**, the holdout stays
+sealed for the next family, and no knob, band, or horizon outside the grid is
+tried. A pass is in-sample to the seed and confirms nothing — it only permits
+iteration 1 at the selected cell, with exits sized from the published path
+distribution by spec amendment.
+
+Two implementation readings pinned here before the run (both surfaced during
+build review, neither chosen after seeing results): the 75%-coverage rule for
+data gaps is measured as elapsed **time span** from fill to the last usable
+candle, not a bar count (interior gaps do not corrupt an endpoint-only
+return); and the de-overlap watermark advances on every accepted fill,
+including entries later excluded from the mean as seal-truncated or
+gap-excluded — such entries still count in the frequency upper bound.
+
+*(Result to be recorded below after the run — nothing above this line may
+change once it does.)*
