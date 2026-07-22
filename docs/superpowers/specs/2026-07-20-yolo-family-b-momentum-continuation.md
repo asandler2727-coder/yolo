@@ -1,9 +1,11 @@
 # YOLO family B — momentum continuation above structure, two universe arms
 
 **Date:** 2026-07-20
-**Status:** DRAFT v2 — audited (research-auditor/opus 2026-07-20, verdict REVIEW) and
-revised per all seven findings (§9). Awaiting Austin's spec-review gate.
-**No code, no signal work, no runs before his approval.**
+**Status:** APPROVED by Austin, 2026-07-22, as written — the gate in §8 is passed.
+Approval adopts the §6 recommendation: ≥5 trades/up-regime-week stays a hard kill.
+(History: DRAFT v2 audited research-auditor/opus 2026-07-20, verdict REVIEW; all
+seven findings folded in — §9.) Work order: implementation plan → TDD build →
+phase 0 → dev phase only if the kill bar passes.
 **Opens:** family A retired 2026-07-20 after 3 of 15 dev iterations — every cell
 decisively negative, gross expectancy ≈ 0 on both arms (`docs/family-a-post-mortem.md`).
 **Still governs:** master spec §6 risk guardrails and §8 security rules; v2 brief regime
@@ -150,7 +152,8 @@ Unchanged in shape from family A: positive total profit at the arm's fee AND
 bootstrap 95% lower bound on mean per-trade net > 0; frequency ≥5 trades/week
 averaged over up-regime periods; report max monthly drawdown, flag any month >25%.
 
-**Frequency bar — decision for Austin at the gate (before phase 0 runs, not after).**
+**Frequency bar — RULED, 2026-07-22: Austin approved the spec as written, adopting
+the recommendation below. ≥5 trades/up-regime-week is a hard kill.**
 A 1–4% band above a 24h high fires less often than family A's at-the-edge trigger,
 and multi-day holds occupy slots longer. The audit's recommendation, adopted here as
 this spec's recommendation too: **keep ≥5 trades/up-week as a hard kill.** The power
