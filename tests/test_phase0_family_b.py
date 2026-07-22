@@ -187,3 +187,59 @@ def test_seal_truncation_excluded_and_counted():
     assert pd.isna(entries["fwd_ret"].iloc[0])
     assert entries.attrs["seal_truncated"] == 1
     assert breach == []
+
+
+# --- Task 4: universe + regime wiring, aggregation, report CLI --------------
+
+import phase0_family_b as p0  # noqa: E402
+
+
+def test_main_produces_full_cell_grid_and_verdict(tmp_path, monkeypatch, capsys):
+    # Synthetic mini-universe: two pairs, both whitelisted for both arms in
+    # every dev month, with an isolated breakout spike every 2000 bars (far
+    # apart relative to the largest horizon, 384 bars, so no signal collides
+    # with another's de-overlap window and all three ref_lookbacks <= 192
+    # see a flat prior window). This exercises the full aggregation seam --
+    # universe wiring, regime wiring, per-cell/arm/horizon concat, the
+    # bootstrap feed, and CSV/verdict output -- without touching real data.
+    pairs = ["AAA/USD", "BBB/USD"]
+
+    def fake_universe(months):
+        return {(arm, f"{m:%Y-%m}"): set(pairs) for m in months for arm in ("L", "D")}
+
+    def fake_regime_lookup():
+        avail = pd.date_range("2024-01-01", periods=20000, freq="1h", tz="UTC")
+        return pd.DataFrame({"avail": avail, "regime_ok": True})
+
+    idx = pd.date_range("2024-02-01", "2025-08-31 23:45", freq="15min", tz="UTC")
+    n = len(idx)
+    close = np.full(n, 100.0)
+    high = close.copy()
+    low = close.copy()
+    volume = np.full(n, 100.0)
+    open_ = np.full(n, 100.0)
+    for i in range(2000, n - 1, 2000):
+        close[i] = 102.0
+        high[i] = 104.0
+        volume[i] = 500.0
+        open_[i + 1] = 100.5          # fill bar's open, inside every cap
+    frame = pd.DataFrame({"open": open_, "high": high, "low": low,
+                          "close": close, "volume": volume}, index=idx)
+
+    def fake_load_candles(pair):
+        return frame.copy()
+
+    csv_out = tmp_path / "phase0-cells.csv"
+    monkeypatch.setattr(p0, "build_universe", fake_universe)
+    monkeypatch.setattr(p0, "regime_lookup_series", fake_regime_lookup)
+    monkeypatch.setattr(p0, "load_candles", fake_load_candles)
+    monkeypatch.setattr(p0, "CSV_OUT", csv_out)
+
+    p0.main()
+
+    out = capsys.readouterr().out
+    assert "Seal guard OK" in out
+    assert "VERDICT" in out
+
+    written = pd.read_csv(csv_out)
+    assert len(written) == 81 * 2 * 3
