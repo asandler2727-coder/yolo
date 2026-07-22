@@ -18,10 +18,15 @@ as fixed there -- see per-function docstrings for which decision each rule
 maps to.
 """
 import sys
+import warnings
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
+# The pyarrow feather deprecation fires once per file read; thousands of reads
+# would swamp the diagnostic artifact (replay_family_a.py does the same).
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from rolling_backtest import (  # noqa: E402
@@ -286,12 +291,23 @@ def build_universe(months: list) -> dict:
 def regime_series_for(index: pd.DatetimeIndex, lut: pd.DataFrame) -> pd.Series:
     """Merge-asof a signal-bar index against the BTC regime LUT: in-regime
     iff the newest LUT row with avail <= t has regime_ok == True; no such row
-    -> False (fail-closed, spec s4)."""
-    idx_df = pd.DataFrame({"ts": index}).sort_values("ts")
-    merged = pd.merge_asof(idx_df, lut.sort_values("avail"),
+    -> False (fail-closed, spec s4).
+
+    Both keys are normalized to ns resolution first: pair feathers load as
+    datetime64[ms, UTC] while the LUT computes as [us, UTC], and merge_asof
+    refuses mixed units. The result is re-indexed by the CALLER's original
+    index object (same order as the sorted merge, asserted), so downstream
+    `regime.reindex(df.index)` in cell_mask aligns exactly — a unit-mismatched
+    index there would silently produce all-False."""
+    idx_ns = pd.DatetimeIndex(index).as_unit("ns")
+    idx_df = pd.DataFrame({"ts": idx_ns}).sort_values("ts")
+    lut_ns = lut.assign(avail=lut["avail"].dt.as_unit("ns")).sort_values("avail")
+    merged = pd.merge_asof(idx_df, lut_ns,
                            left_on="ts", right_on="avail", direction="backward")
     regime = merged["regime_ok"].fillna(False).astype(bool)
-    return pd.Series(regime.to_numpy(), index=merged["ts"]).reindex(index).fillna(False)
+    assert (merged["ts"].to_numpy() == idx_ns.to_numpy()).all(), \
+        "signal index must be pre-sorted so merge order matches the caller's index"
+    return pd.Series(regime.to_numpy(), index=index)
 
 
 _candle_cache: dict = {}

@@ -344,3 +344,23 @@ def test_path_stats_truncates_window_before_seal():
     out = path_stats(df, entries, horizon_bars=15)
     assert len(out) == 1
     assert (df.index[0] + pd.Timedelta(hours=out.iloc[0]["time_to_peak_h"])) < SEAL_TS
+
+
+def test_regime_series_handles_mixed_datetime_units():
+    # Real-data regression: pair feathers load as datetime64[ms, UTC] while the
+    # BTC LUT computes as datetime64[us, UTC]; merge_asof refuses mixed units,
+    # and a naive unit cast can silently misalign the reindex to all-False.
+    # Assert VALUES, not just no-crash.
+    import pandas as pd
+    from phase0_family_b import regime_series_for
+    idx = pd.date_range("2024-06-01", periods=6, freq="15min", tz="UTC").as_unit("ms")
+    lut = pd.DataFrame({
+        "avail": pd.DatetimeIndex(
+            [pd.Timestamp("2024-05-31 23:45", tz="UTC"),
+             pd.Timestamp("2024-06-01 00:45", tz="UTC")]).as_unit("us"),
+        "regime_ok": [True, False],
+    })
+    s = regime_series_for(idx, lut)
+    assert list(s.index) == list(idx)
+    # bars before 00:45 see the True bucket; at/after 00:45 the False one
+    assert s.iloc[:3].all() and not s.iloc[3:].any()
