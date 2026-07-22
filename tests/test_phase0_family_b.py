@@ -243,3 +243,104 @@ def test_main_produces_full_cell_grid_and_verdict(tmp_path, monkeypatch, capsys)
 
     written = pd.read_csv(csv_out)
     assert len(written) == 81 * 2 * 3
+
+    assert "TOP-20 LOOKS" in out
+    assert "EXTENSION GRADIENT" in out
+    assert "PATH DISTRIBUTION" in out
+
+
+# --- Task 4 gap-fill: top-20 table, extension gradient, path distribution ---
+
+from phase0_family_b import top20_table, extension_gradient, path_stats  # noqa: E402
+
+
+def test_top20_table_sorts_descending_drops_ineligible_caps_at_n():
+    per_look = {
+        f"look{i}": {"n": 100, "mean": i * 0.001, "se": 0.01, "eligible": True}
+        for i in range(25)
+    }
+    per_look["ineligible_but_huge"] = {"n": 5, "mean": 0.9, "se": 0.01, "eligible": False}
+    up_week = {f"look{i}": 2.0 for i in range(25)}
+    out = top20_table(per_look, up_week, top_n=20)
+    assert len(out) == 20
+    assert list(out["look_id"]) == [f"look{i}" for i in range(24, 4, -1)]
+    assert "ineligible_but_huge" not in set(out["look_id"])
+    assert out["mean"].is_monotonic_decreasing
+
+
+def test_extension_gradient_band_edges_and_arm_horizon_split():
+    entries = pd.DataFrame({
+        "extension": [0.005, 0.0099, 0.01, 0.0149, 0.015, 0.02,
+                      0.0299, 0.03, 0.0399, 0.04, 0.06, 0.061, 0.004],
+        "fwd_ret": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 999, 999],
+        "arm": ["L"] * 13,
+        "horizon": ["24h"] * 13,
+    })
+    # second arm/horizon combo with a single entry in the same 0.01 band
+    entries2 = pd.DataFrame({
+        "extension": [0.011], "fwd_ret": [0.05], "arm": ["D"], "horizon": ["96h"],
+    })
+    combined = pd.concat([entries, entries2], ignore_index=True)
+    out = extension_gradient(combined)
+
+    # exactly 0.01 lands in [0.01,0.015), not the lower band
+    row = out[(out["arm"] == "L") & (out["band"] == "[0.01,0.015)")]
+    assert set(row["mean"].round(2)) == {round((0.3 + 0.4) / 2, 2)}
+    assert row["n"].iloc[0] == 2
+
+    # 0.04 and 0.06 both land in the last, right-inclusive band; 0.061 is
+    # dropped (out of range) rather than folded in
+    top_band = out[(out["arm"] == "L") & (out["band"] == "[0.04,0.06]")]
+    assert top_band["n"].iloc[0] == 2
+    assert top_band["mean"].iloc[0] == pytest.approx((1.0 + 1.1) / 2)
+
+    # 0.004 is below the lowest band edge -> dropped entirely
+    assert not ((out["arm"] == "L") & (out["mean"] == 999)).any()
+
+    # arm/horizon split: D|96h's 0.011 shows up as its own group, not merged into L|24h
+    d_row = out[(out["arm"] == "D") & (out["horizon"] == "96h")]
+    assert len(d_row) == 1
+    assert d_row["band"].iloc[0] == "[0.01,0.015)"
+    assert d_row["mean"].iloc[0] == pytest.approx(0.05)
+
+
+def _ramp_frame(n=20, start="2024-06-01"):
+    idx = pd.date_range(start, periods=n, freq="15min", tz="UTC")
+    df = pd.DataFrame({"open": 100.0, "high": 100.0, "low": 100.0,
+                       "close": 100.0, "volume": 100.0}, index=idx)
+    return df
+
+
+def test_path_stats_peak_time_to_peak_and_drawdown_truncates_at_peak():
+    # fill at bar 0 (fill=100). High ramps 101,102,...,110 at bar 5 (unique max,
+    # no tiebreak ambiguity), then decays. Low dips to 97 at bar 2 (before the
+    # peak) AND to 95 at bar 8 (AFTER the peak) -- the post-peak 95 low must
+    # NOT be picked up; drawdown must reflect only fill-bar-through-peak-bar.
+    df = _ramp_frame(20)
+    df.loc[df.index[1], "high"] = 101.0
+    df.loc[df.index[2], "high"] = 102.0
+    df.loc[df.index[2], "low"] = 97.0     # pre-peak low
+    df.loc[df.index[3], "high"] = 105.0
+    df.loc[df.index[4], "high"] = 108.0
+    df.loc[df.index[5], "high"] = 110.0   # unique peak
+    df.loc[df.index[6], "high"] = 106.0
+    df.loc[df.index[8], "low"] = 95.0     # post-peak low -- must be ignored
+
+    entries = pd.DataFrame({"fill_ts": [df.index[0]], "fill": [100.0]})
+    out = path_stats(df, entries, horizon_bars=15)
+
+    assert len(out) == 1
+    r = out.iloc[0]
+    assert r["peak"] == pytest.approx(0.10)
+    assert r["pre_peak_drawdown"] == pytest.approx(-0.03)
+    assert r["time_to_peak_h"] == pytest.approx(5 * 0.25)  # 5 bars * 15min
+
+
+def test_path_stats_truncates_window_before_seal():
+    from phase0_family_b import SEAL_TS
+    df = _ramp_frame(20, start="2025-08-31 22:00")
+    df.loc[df.index[5], "high"] = 110.0
+    entries = pd.DataFrame({"fill_ts": [df.index[0]], "fill": [100.0]})
+    out = path_stats(df, entries, horizon_bars=15)
+    assert len(out) == 1
+    assert (df.index[0] + pd.Timedelta(hours=out.iloc[0]["time_to_peak_h"])) < SEAL_TS

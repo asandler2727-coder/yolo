@@ -88,7 +88,7 @@ def cell_mask(df: pd.DataFrame, ref_lookback: int, min_ext: float, max_ext: floa
     return mask.fillna(False)
 
 
-_ENTRY_COLUMNS = ["signal_ts", "fill_ts", "fill", "fwd_ret", "month", "extension"]
+_ENTRY_COLUMNS = ["signal_ts", "fill_ts", "fill", "fwd_ret", "month", "extension", "pair"]
 
 
 def entries_for_cell(df: pd.DataFrame, mask: pd.Series, ref_col: str,
@@ -177,6 +177,100 @@ def _cell_id(cell: tuple) -> str:
     return f"{rl}-{mn}-{mx}-{vm}"
 
 
+WIDEST_CELL_ID = _cell_id((96, 0.005, 0.06, 2.0))
+DEFAULT_CELL_ID = _cell_id((96, 0.01, 0.04, 2.0))
+
+
+def top20_table(per_look: dict, trades_per_up_week: dict, top_n: int = 20) -> pd.DataFrame:
+    """Plan Task 4 publication requirement: every eligible look, sorted by
+    mean descending, top N. look_id, n, mean, se, trades/up-week."""
+    rows = [
+        {"look_id": look_id, "n": st["n"], "mean": st["mean"], "se": st["se"],
+         "trades_per_up_week": trades_per_up_week.get(look_id, float("nan"))}
+        for look_id, st in per_look.items() if st["eligible"]
+    ]
+    cols = ["look_id", "n", "mean", "se", "trades_per_up_week"]
+    df = pd.DataFrame(rows, columns=cols)
+    return df.sort_values("mean", ascending=False).head(top_n).reset_index(drop=True)
+
+
+# Extension gradient bands (decision 8): pre-registered, left-closed/right-open
+# except the last band, which is closed on both ends.
+_EXTENSION_BANDS = [
+    (0.005, 0.01, False),
+    (0.01, 0.015, False),
+    (0.015, 0.02, False),
+    (0.02, 0.03, False),
+    (0.03, 0.04, False),
+    (0.04, 0.06, True),
+]
+
+
+def _band_label(lo: float, hi: float, right_inclusive: bool) -> str:
+    return f"[{lo},{hi}{']' if right_inclusive else ')'}"
+
+
+_EXTENSION_BAND_LABELS = [_band_label(*b) for b in _EXTENSION_BANDS]
+
+
+def _assign_band(ext: float):
+    for lo, hi, incl in _EXTENSION_BANDS:
+        if ext >= lo and (ext < hi or (incl and ext <= hi)):
+            return _band_label(lo, hi, incl)
+    return None  # outside the pre-registered range -- dropped, not merged in
+
+
+def extension_gradient(entries: pd.DataFrame) -> pd.DataFrame:
+    """Decision 8: bucket each entry's `extension` into the pre-registered
+    bands and report n / mean gross fwd_ret per arm x horizon x band. `n` and
+    the mean are both over valid (non-NaN fwd_ret) entries only -- an entry
+    excluded from every other average (seal-truncated/gap) is excluded here
+    too. `entries` must carry columns extension, fwd_ret, arm, horizon
+    (already concatenated by the caller from the widest cell's looks)."""
+    e = entries.copy()
+    e["band"] = e["extension"].map(_assign_band)
+    e = e[e["band"].notna()]
+    valid = e.dropna(subset=["fwd_ret"])
+    if not len(valid):
+        return pd.DataFrame(columns=["arm", "horizon", "band", "n", "mean"])
+    grouped = (valid.groupby(["arm", "horizon", "band"], observed=True)["fwd_ret"]
+               .agg(n="size", mean="mean").reset_index())
+    grouped["band"] = pd.Categorical(grouped["band"], categories=_EXTENSION_BAND_LABELS,
+                                     ordered=True)
+    return grouped.sort_values(["arm", "horizon", "band"]).reset_index(drop=True)
+
+
+def path_stats(df: pd.DataFrame, entries: pd.DataFrame,
+               horizon_bars: int = 384) -> pd.DataFrame:
+    """Decision 7: per-entry path shape over the (always 96h) window, seal-
+    guarded the same way entries_for_cell's exit window is. For each entry:
+    peak = max(high)/fill - 1; time_to_peak_h = hours from fill to the peak
+    bar; pre_peak_drawdown = min(low) from the fill bar through the peak bar
+    (inclusive), /fill - 1. Returns one row per entry; the caller aggregates
+    quantiles across the population it has already restricted to untruncated
+    entries (dropna(fwd_ret) on the matching 96h look)."""
+    rows = []
+    for _, e in entries.iterrows():
+        fill_ts = e["fill_ts"]
+        fill_px = float(e["fill"])
+        pos = df.index.get_loc(fill_ts)
+        w = df.iloc[pos: pos + horizon_bars + 1]
+        w = w[w.index < SEAL_TS]
+        if not len(w):
+            continue
+        peak_idx = w["high"].idxmax()
+        peak_px = float(w.loc[peak_idx, "high"])
+        pre_peak_low = float(w.loc[:peak_idx, "low"].min())
+        rows.append({
+            "fill_ts": fill_ts,
+            "peak": peak_px / fill_px - 1,
+            "time_to_peak_h": (peak_idx - fill_ts).total_seconds() / 3600.0,
+            "pre_peak_drawdown": pre_peak_low / fill_px - 1,
+        })
+    return pd.DataFrame(rows, columns=["fill_ts", "peak", "time_to_peak_h",
+                                       "pre_peak_drawdown"])
+
+
 def build_universe(months: list) -> dict:
     """(arm, "YYYY-MM") -> set of whitelisted pairs, spec s4 (imported, never
     reimplemented): L = rank_pairs_for_month(DATA_DIR, month, 30);
@@ -254,6 +348,7 @@ def main() -> None:
                 for horizon_label, horizon_bars in HORIZON_BARS.items():
                     entries = entries_for_cell(df, masked, f"ref_high_{cell[0]}",
                                                cell[2], horizon_bars, seal_breach)
+                    entries["pair"] = pair
                     for k in exclude_totals:
                         exclude_totals[k] += entries.attrs[k]
                     look_id = f"{arm}|{_cell_id(cell)}|{horizon_label}"
@@ -325,6 +420,78 @@ def main() -> None:
                   f"LB={arm_result['lb_selected']:+.4%}")
         else:
             print(f"  arm {arm}: no eligible look")
+
+    trades_per_up_week = {row["look_id"]: row["trades_per_up_week"] for row in rows_for_csv}
+    print("\n" + "=" * 78)
+    print("TOP-20 LOOKS BY MEAN (eligible only)")
+    print("=" * 78)
+    for _, r in top20_table(stats_by_look, trades_per_up_week, top_n=20).iterrows():
+        print(f"  {r['look_id']:<30} n={int(r['n']):>5} mean={r['mean']:+.4%} "
+              f"se={r['se']:.4%} trades/up-week={r['trades_per_up_week']:.3f}")
+
+    print("\n" + "=" * 78)
+    print(f"EXTENSION GRADIENT (decision 8, widest cell {WIDEST_CELL_ID})")
+    print("=" * 78)
+    gradient_frames = []
+    for arm in ("L", "D"):
+        for horizon_label in HORIZON_BARS:
+            dfs = entries_by_look.get(f"{arm}|{WIDEST_CELL_ID}|{horizon_label}", [])
+            if not dfs:
+                continue
+            combined = pd.concat(dfs, ignore_index=True)
+            combined["arm"] = arm
+            combined["horizon"] = horizon_label
+            gradient_frames.append(combined)
+    gradient_entries = (pd.concat(gradient_frames, ignore_index=True) if gradient_frames
+                        else pd.DataFrame(columns=_ENTRY_COLUMNS + ["arm", "horizon"]))
+    for _, r in extension_gradient(gradient_entries).iterrows():
+        print(f"  {r['arm']} {r['horizon']:>3} {r['band']:<14} n={int(r['n']):>5} "
+              f"mean_fwd_ret={r['mean']:+.4%}")
+
+    print("\n" + "=" * 78)
+    print("PATH DISTRIBUTION (decision 7, 96h de-overlapped, untruncated entries)")
+    print("=" * 78)
+    path_targets = []
+    if selected is not None:
+        sel_cell_id = selected.split("|")[1]
+        if sel_cell_id == DEFAULT_CELL_ID:
+            path_targets.append((DEFAULT_CELL_ID, "selected+default"))
+        else:
+            path_targets.append((sel_cell_id, "selected"))
+            path_targets.append((DEFAULT_CELL_ID, "default"))
+    else:
+        path_targets.append((DEFAULT_CELL_ID, "default"))
+
+    for cell_id, label in path_targets:
+        print(f"  cell {cell_id} [{label}]")
+        for arm in ("L", "D"):
+            dfs = entries_by_look.get(f"{arm}|{cell_id}|96h", [])
+            all_e = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+            valid = all_e.dropna(subset=["fwd_ret"]) if len(all_e) else all_e
+            if not len(valid):
+                print(f"    arm {arm}: no untruncated 96h entries")
+                continue
+            per_entry_frames = []
+            for pair, group in valid.groupby("pair"):
+                pair_df = load_candles(pair)
+                pair_df = pair_df[pair_df.index < SEAL_TS]
+                per_entry_frames.append(path_stats(pair_df, group, horizon_bars=384))
+            per_entry = (pd.concat(per_entry_frames, ignore_index=True)
+                        if per_entry_frames else pd.DataFrame())
+            if not len(per_entry):
+                print(f"    arm {arm}: no untruncated 96h entries")
+                continue
+            qs = [0.25, 0.5, 0.75, 0.9]
+            pk = per_entry["peak"].quantile(qs)
+            tp = per_entry["time_to_peak_h"].quantile(qs)
+            dd = per_entry["pre_peak_drawdown"].quantile(qs)
+            print(f"    arm {arm} n={len(per_entry)}")
+            print(f"      peak            p25={pk[0.25]:+.4%} p50={pk[0.5]:+.4%} "
+                  f"p75={pk[0.75]:+.4%} p90={pk[0.9]:+.4%}")
+            print(f"      time_to_peak_h  p25={tp[0.25]:.2f} p50={tp[0.5]:.2f} "
+                  f"p75={tp[0.75]:.2f} p90={tp[0.9]:.2f}")
+            print(f"      pre_peak_dd     p25={dd[0.25]:+.4%} p50={dd[0.5]:+.4%} "
+                  f"p75={dd[0.75]:+.4%} p90={dd[0.9]:+.4%}")
 
     print(f"\nExclusions (across all looks): {exclude_totals}")
     print(f"Up-regime weeks in dev window: {up_regime_weeks:.2f} "
