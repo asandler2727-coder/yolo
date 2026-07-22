@@ -1,4 +1,7 @@
-# Running the bot on the Windows desktop (paper mode)
+# Preparing the Windows desktop (paper mode is not approved)
+
+**Current status:** do not start the bot. Family A and Family B are retired, and no strategy
+has approval to begin the two-week paper gate. The launcher is fail-closed by default.
 
 One-time setup:
 1. Install Docker Desktop for Windows (docker.com) and start it. Enable
@@ -8,12 +11,9 @@ One-time setup:
 4. `cp .env.example .env`, then edit `.env` in Notepad: set a long random
    FT_JWT_SECRET and a real FT_PASS.
 
-Start the bot: `docker compose up -d`
-Watch it: open http://127.0.0.1:8080 in a browser — login `yolo` / your FT_PASS.
-Daily check: `docker compose logs --since 24h freqtrade | tail -50` and run
-  `py scripts/health_check.py` (needs `py -m pip install freqtrade-client` once).
-Stop the bot (kill switch): `docker compose down`
-Update to latest code: `git pull && docker compose up -d --force-recreate`
+Stop after the one-time setup. Do not run `docker compose up`, `docker compose run`, or any
+Freqtrade trade command. The retained `MemeMomentum` class is retired research evidence.
 
-The 2-week dry-run clock (spec §9) starts at the first `docker compose up -d`
-and the decision date goes in docs/backtests.md the same day.
+Future launch instructions will be added only after a strategy passes the required research
+review and Austin explicitly approves paper trading. That future approval must also record the
+exact strategy and image version; merely cloning this repository never grants approval.

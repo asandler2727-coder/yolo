@@ -826,3 +826,31 @@ more — no iteration may act on them):**
   ~+10% (p75 ~+20%), median time-to-peak ~31–33h, median pre-peak drawdown
   ~−3%. Any future family in this area should expect stops tighter than −3%
   to clip half its winners before they peak.
+
+### Physical-seal correction and certified rerun — 2026-07-22
+
+The original report's “Seal guard OK” claim was too strong. An independent
+review found that phase 0 opened each mixed raw Feather file (and the mixed BTC
+file) before filtering rows, while its positional-window guard checked for a
+post-seal row only *after* removing such rows. The numerical FAIL was not shown
+to use a future candle, but the code did not prove the promised physical input
+boundary. That governance claim is superseded rather than silently retained.
+
+Remediation now provisions a manifest-pinned physical dataset containing only
+candles before 2025-09-01. The Arrow provisioning filter runs before pandas;
+phase 0, universe ranking, and BTC regime construction open only those physical
+dev files. Every dev file is hash-pinned, the complete 628-file manifest was
+validated, and an independent boundary scan found 18,420,166 dev rows and
+**zero** rows at or after the seal. Synthetic regressions now force an immediate
+failure if an entry/path window or manifest-pinned file contains a sealed row.
+The legitimate `seal_truncated` counter remains: it excludes a dev entry whose
+modeled horizon would require unavailable future data without opening that data.
+
+Certified rerun artifacts:
+`docs/diagnostics/2026-07-22-family-b-phase0-sealed-rerun.txt` and
+`docs/diagnostics/2026-07-22-family-b-phase0-sealed-rerun-cells.csv`.
+The new 486-row CSV is byte-for-byte identical to the original. The text report
+is identical except for the CSV output filename. Selected look, +2.4090% mean,
+−1.3486% simultaneous lower bound, exclusions, and **KILL BAR FAIL** are all
+unchanged. Family B remains retired at zero iterations; no holdout result was
+opened and no iteration budget was spent.

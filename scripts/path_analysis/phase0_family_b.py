@@ -30,12 +30,15 @@ import pandas as pd  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from rolling_backtest import (  # noqa: E402
-    DATA_DIR, rank_pairs_for_month, rank_pairs_downcap_for_month,
+    rank_pairs_for_month, rank_pairs_downcap_for_month,
 )
 from verify_regime_gating import regime_lookup_series  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent))
 from phase0_stats import max_stat_bootstrap  # noqa: E402
+from sealed_io import (  # noqa: E402
+    SealBreachError, load_dev_feather, validate_dev_dataset,
+)
 
 # --- grids (spec s3, pre-registered) ----------------------------------------
 REF_LOOKBACKS = (48, 96, 192)
@@ -53,11 +56,14 @@ CELLS = [(rl, mn, mx, vm) for rl in REF_LOOKBACKS for mn in MIN_EXTS
 SEAL_TS = pd.Timestamp("2025-09-01", tz="UTC")
 DEV_START = pd.Timestamp("2024-02-01", tz="UTC")
 DEV_END = pd.Timestamp("2025-08-01", tz="UTC")  # last month START in the dev range
+DEV_DATA_DIR = Path("user_data/data/kraken-dev-before-2025-09-01")
 
 # --- arms (spec s4): full round-trip cost the kill bar must clear -----------
 ROUND_TRIP = {"L": 0.009, "D": 0.012}
 
-CSV_OUT = Path("docs/diagnostics/2026-07-22-family-b-phase0-cells.csv")
+CSV_OUT = Path(
+    "docs/diagnostics/2026-07-22-family-b-phase0-sealed-rerun-cells.csv"
+)
 
 
 def compute_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -146,9 +152,10 @@ def entries_for_cell(df: pd.DataFrame, mask: pd.Series, ref_col: str,
 
         exit_end = fill_ts + horizon_td
         w = df.iloc[fill_pos: fill_pos + horizon_bars + 1]
-        w = w[w.index < SEAL_TS]
         if len(w) and w.index.max() >= SEAL_TS:
-            seal_breach.append(f"signal {signal_ts} fill {fill_ts}")
+            detail = f"signal {signal_ts} fill {fill_ts}"
+            seal_breach.append(detail)
+            raise SealBreachError(f"seal breach in entry window: {detail}")
 
         if exit_end >= SEAL_TS:
             fwd_ret = float("nan")
@@ -260,7 +267,10 @@ def path_stats(df: pd.DataFrame, entries: pd.DataFrame,
         fill_px = float(e["fill"])
         pos = df.index.get_loc(fill_ts)
         w = df.iloc[pos: pos + horizon_bars + 1]
-        w = w[w.index < SEAL_TS]
+        if len(w) and w.index.max() >= SEAL_TS:
+            raise SealBreachError(
+                f"seal breach in path window: fill {fill_ts}, max {w.index.max()}"
+            )
         if not len(w):
             continue
         peak_idx = w["high"].idxmax()
@@ -278,13 +288,13 @@ def path_stats(df: pd.DataFrame, entries: pd.DataFrame,
 
 def build_universe(months: list) -> dict:
     """(arm, "YYYY-MM") -> set of whitelisted pairs, spec s4 (imported, never
-    reimplemented): L = rank_pairs_for_month(DATA_DIR, month, 30);
-    D = rank_pairs_downcap_for_month(DATA_DIR, month)."""
+    reimplemented): L = rank_pairs_for_month(DEV_DATA_DIR, month, 30);
+    D = rank_pairs_downcap_for_month(DEV_DATA_DIR, month)."""
     universe = {}
     for m in months:
         key = f"{m:%Y-%m}"
-        universe[("L", key)] = set(rank_pairs_for_month(DATA_DIR, m, 30))
-        universe[("D", key)] = set(rank_pairs_downcap_for_month(DATA_DIR, m))
+        universe[("L", key)] = set(rank_pairs_for_month(DEV_DATA_DIR, m, 30))
+        universe[("D", key)] = set(rank_pairs_downcap_for_month(DEV_DATA_DIR, m))
     return universe
 
 
@@ -314,23 +324,22 @@ _candle_cache: dict = {}
 
 
 def load_candles(pair: str) -> pd.DataFrame:
-    """Load one pair's 15m feather once, cached (replay_family_a.candles's
-    pattern). No seal enforcement here -- main() truncates before use."""
+    """Load one manifest-pinned physical dev-only feather once, cached."""
     if pair not in _candle_cache:
-        df = pd.read_feather(DATA_DIR / f"{pair.replace('/', '_')}-15m.feather")
-        df["date"] = pd.to_datetime(df["date"], utc=True)
+        path = DEV_DATA_DIR / f"{pair.replace('/', '_')}-15m.feather"
+        df = load_dev_feather(path, SEAL_TS)
         _candle_cache[pair] = df.set_index("date").sort_index()
     return _candle_cache[pair]
 
 
 def main() -> None:
+    validate_dev_dataset(DEV_DATA_DIR, SEAL_TS, verify_hashes=True)
     months = list(pd.date_range(DEV_START, DEV_END, freq="MS", tz="UTC"))
     month_strs = [f"{m:%Y-%m}" for m in months]
     universe = build_universe(months)
     all_pairs = sorted({p for pairs in universe.values() for p in pairs})
 
-    lut = regime_lookup_series()
-    lut = lut[lut["avail"] < SEAL_TS]  # seal guard, symmetric with the candle truncation below
+    lut = regime_lookup_series(DEV_DATA_DIR, SEAL_TS)
     up_regime_buckets = int(((lut["avail"] >= DEV_START) & lut["regime_ok"]).sum())
     up_regime_weeks = up_regime_buckets / 168.0
 
@@ -340,7 +349,6 @@ def main() -> None:
 
     for pair in all_pairs:
         df = load_candles(pair)
-        df = df[df.index < SEAL_TS]  # never let a sealed candle reach a computation
         if not len(df):
             continue
         df = compute_features(df)
@@ -490,7 +498,6 @@ def main() -> None:
             per_entry_frames = []
             for pair, group in valid.groupby("pair"):
                 pair_df = load_candles(pair)
-                pair_df = pair_df[pair_df.index < SEAL_TS]
                 per_entry_frames.append(path_stats(pair_df, group, horizon_bars=384))
             per_entry = (pd.concat(per_entry_frames, ignore_index=True)
                         if per_entry_frames else pd.DataFrame())

@@ -1,17 +1,23 @@
 services:
   freqtrade:
     image: freqtradeorg/freqtrade:stable
-    restart: unless-stopped
+    restart: "no"
     container_name: yolo-freqtrade
     volumes:
       - "./user_data:/freqtrade/user_data"
       - "./config-paper.json:/freqtrade/config-paper.json:ro"
+      - "./scripts/guard_paper_launch.sh:/freqtrade/guard_paper_launch.sh:ro"
     ports:
       - "127.0.0.1:8080:8080"
-    command: >
-      trade
-      --config /freqtrade/config-paper.json
-      --strategy MemeMomentum
+    entrypoint: ["/bin/sh", "/freqtrade/guard_paper_launch.sh", "MemeMomentum"]
+    command:
+      - freqtrade
+      - trade
+      - --config
+      - /freqtrade/config-paper.json
+      - --strategy
+      - MemeMomentum
     environment:
       - FREQTRADE__API_SERVER__JWT_SECRET_KEY=${FT_JWT_SECRET:-dev-only-secret}
       - FREQTRADE__API_SERVER__PASSWORD=${FT_PASS:-yolo-dev}
+      - YOLO_APPROVED_STRATEGY=${YOLO_APPROVED_STRATEGY:-}

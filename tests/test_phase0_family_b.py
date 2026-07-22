@@ -174,8 +174,9 @@ def test_forward_return_open_to_close_at_horizon():
 
 
 def test_seal_truncation_excluded_and_counted():
-    # entry whose fill_ts + horizon lands past 2025-09-01 -> no fwd_ret,
-    # attrs["seal_truncated"] == 1, and seal_breach stays empty (guard held).
+    # A physically dev-only frame may end before the seal while the modeled
+    # horizon reaches past it. That is a legitimate exclusion, not a raw-data
+    # boundary breach.
     df = _synthetic_frame(8, start="2025-08-31 22:00")
     df.loc[df.index[4], "close"] = 102.0           # signal at 23:00
     df.loc[df.index[5], "open"] = 101.0            # fill at 23:15, accepted
@@ -187,6 +188,18 @@ def test_seal_truncation_excluded_and_counted():
     assert pd.isna(entries["fwd_ret"].iloc[0])
     assert entries.attrs["seal_truncated"] == 1
     assert breach == []
+
+
+def test_entries_raise_before_hiding_a_raw_window_that_crosses_seal():
+    # Regression: the old guard filtered post-seal rows out of `w` and only
+    # then checked for them, making the breach check unreachable.
+    df = _synthetic_frame(12, start="2025-08-31 22:00")
+    df.loc[df.index[4], "close"] = 102.0           # signal at 23:00
+    df.loc[df.index[5], "open"] = 101.0            # fill at 23:15
+    mask = pd.Series(False, index=df.index)
+    mask.iloc[4] = True
+    with pytest.raises(Exception, match="(?i)seal"):
+        entries_for_cell(df, mask, "ref_high_48", 0.04, 96, [])
 
 
 # --- Task 4: universe + regime wiring, aggregation, report CLI --------------
@@ -207,7 +220,7 @@ def test_main_produces_full_cell_grid_and_verdict(tmp_path, monkeypatch, capsys)
     def fake_universe(months):
         return {(arm, f"{m:%Y-%m}"): set(pairs) for m in months for arm in ("L", "D")}
 
-    def fake_regime_lookup():
+    def fake_regime_lookup(data_dir, seal_ts):
         avail = pd.date_range("2024-01-01", periods=20000, freq="1h", tz="UTC")
         return pd.DataFrame({"avail": avail, "regime_ok": True})
 
@@ -230,6 +243,7 @@ def test_main_produces_full_cell_grid_and_verdict(tmp_path, monkeypatch, capsys)
         return frame.copy()
 
     csv_out = tmp_path / "phase0-cells.csv"
+    monkeypatch.setattr(p0, "validate_dev_dataset", lambda *args, **kwargs: {})
     monkeypatch.setattr(p0, "build_universe", fake_universe)
     monkeypatch.setattr(p0, "regime_lookup_series", fake_regime_lookup)
     monkeypatch.setattr(p0, "load_candles", fake_load_candles)
@@ -336,14 +350,13 @@ def test_path_stats_peak_time_to_peak_and_drawdown_truncates_at_peak():
     assert r["time_to_peak_h"] == pytest.approx(5 * 0.25)  # 5 bars * 15min
 
 
-def test_path_stats_truncates_window_before_seal():
+def test_path_stats_raises_before_hiding_a_raw_window_that_crosses_seal():
     from phase0_family_b import SEAL_TS
     df = _ramp_frame(20, start="2025-08-31 22:00")
     df.loc[df.index[5], "high"] = 110.0
     entries = pd.DataFrame({"fill_ts": [df.index[0]], "fill": [100.0]})
-    out = path_stats(df, entries, horizon_bars=15)
-    assert len(out) == 1
-    assert (df.index[0] + pd.Timedelta(hours=out.iloc[0]["time_to_peak_h"])) < SEAL_TS
+    with pytest.raises(Exception, match="(?i)seal"):
+        path_stats(df, entries, horizon_bars=15)
 
 
 def test_regime_series_handles_mixed_datetime_units():
@@ -364,3 +377,61 @@ def test_regime_series_handles_mixed_datetime_units():
     assert list(s.index) == list(idx)
     # bars before 00:45 see the True bucket; at/after 00:45 the False one
     assert s.iloc[:3].all() and not s.iloc[3:].any()
+
+
+def test_phase0_candle_loader_uses_physical_dev_dataset(monkeypatch, tmp_path):
+    frame = _frame([100.0, 101.0]).reset_index(names="date")
+    calls = []
+
+    def fake_sealed_loader(path, seal_ts):
+        calls.append((Path(path), seal_ts))
+        return frame.copy()
+
+    monkeypatch.setattr(p0, "DEV_DATA_DIR", tmp_path, raising=False)
+    monkeypatch.setattr(p0, "load_dev_feather", fake_sealed_loader, raising=False)
+    p0._candle_cache.clear()
+    out = p0.load_candles("AAA/USD")
+
+    assert calls == [(tmp_path / "AAA_USD-15m.feather", p0.SEAL_TS)]
+    assert out.index.name == "date"
+
+
+def test_phase0_universe_ranking_uses_physical_dev_dataset(monkeypatch, tmp_path):
+    seen = []
+
+    def fake_l(data_dir, month, top_n):
+        seen.append(Path(data_dir))
+        return []
+
+    def fake_d(data_dir, month):
+        seen.append(Path(data_dir))
+        return []
+
+    monkeypatch.setattr(p0, "DEV_DATA_DIR", tmp_path, raising=False)
+    monkeypatch.setattr(p0, "rank_pairs_for_month", fake_l)
+    monkeypatch.setattr(p0, "rank_pairs_downcap_for_month", fake_d)
+    p0.build_universe([pd.Timestamp("2024-02-01", tz="UTC")])
+    assert seen == [tmp_path, tmp_path]
+
+
+def test_regime_lookup_uses_sealed_loader(monkeypatch, tmp_path):
+    import verify_regime_gating as vrg
+
+    frame = _frame([100.0] * 8).reset_index(names="date")
+    calls = []
+
+    def fake_loader(path, seal_ts):
+        calls.append((Path(path), seal_ts))
+        return frame.copy()
+
+    monkeypatch.setattr(vrg, "load_dev_feather", fake_loader, raising=False)
+    monkeypatch.setattr(vrg, "resample_1h", lambda df: df.copy())
+    monkeypatch.setattr(
+        vrg,
+        "regime_mask_from_btc",
+        lambda df, params: pd.Series(True, index=df.index),
+    )
+    out = vrg.regime_lookup_series(tmp_path, p0.SEAL_TS)
+
+    assert calls == [(tmp_path / "BTC_USD-15m.feather", p0.SEAL_TS)]
+    assert out["regime_ok"].all()

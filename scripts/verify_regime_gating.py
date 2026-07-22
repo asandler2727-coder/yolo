@@ -19,8 +19,11 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "user_data" / "strategies"))
 from momentum_signals import DEFAULT_PARAMS, regime_mask_from_btc, resample_1h
+sys.path.insert(0, str(Path(__file__).parent / "path_analysis"))
+from sealed_io import load_dev_feather
 
-BTC = Path("user_data/data/kraken/BTC_USD-15m.feather")
+DEV_DATA_DIR = Path("user_data/data/kraken-dev-before-2025-09-01")
+SEAL_TS = pd.Timestamp("2025-09-01", tz="UTC")
 RESULTS = [Path(p) for p in sys.argv[1:]]
 
 
@@ -31,9 +34,8 @@ def load_trades(zip_path):
     return data["strategy"]["MemeMomentum"]["trades"]
 
 
-def regime_lookup_series():
-    btc = pd.read_feather(BTC)
-    btc["date"] = pd.to_datetime(btc["date"], utc=True)
+def regime_lookup_series(data_dir=DEV_DATA_DIR, seal_ts=SEAL_TS):
+    btc = load_dev_feather(Path(data_dir) / "BTC_USD-15m.feather", seal_ts)
     btc_1h = resample_1h(btc)
     btc_1h["regime_ok"] = regime_mask_from_btc(btc_1h, DEFAULT_PARAMS)
     # Availability time of each 1h bucket to a 15m stream (freqtrade's offset).

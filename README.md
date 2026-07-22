@@ -1,19 +1,18 @@
 # YOLO — Meme Coin Momentum Bot
 
-An automated trading bot built on [Freqtrade](https://www.freqtrade.io/). It scans the whole
-Kraken USD market for trending, high-volume coins and trades them with a **v2** trend-filtered
-pullback strategy (v1 pump-chase is frozen). Austin owns the on/off switch; the code does the
-trading.
+An experimental Kraken/Freqtrade research project for trending, high-volume USD coins.
+Austin owns the on/off switch; no strategy is allowed to paper trade or trade real money
+without passing the project's research gates.
 
-**Status:** v2 redesign specified — implement from
-`docs/superpowers/specs/2026-07-19-yolo-v2-pullback-redesign.md` and the matching plan under
-`docs/superpowers/plans/`.
+**Status: research only.** Family A and Family B are retired. There is no approved paper
+strategy and no live strategy. The Docker launcher is deliberately blocked by default.
 
 ## The rules this project lives by
 
 1. Backtest first, then 2 weeks of paper trading (dry-run), then — only on Austin's explicit
    "I am ready to go live" — real money at half stakes.
-2. Hard-coded risk cap: $750 total, max 3 positions of $250, automatic halt at 15% drawdown.
+2. Intended risk cap: $750 total. Position sizing and circuit-breaker behavior must be
+   container-verified for any future approved strategy before its paper clock starts.
 3. Frequency gate: ≥5 trades/week **in up-regime periods**; sitting out bears is allowed.
    Positive profit after ~0.4% taker fees is still required. v1-style churn is not the goal.
 4. Kraken API keys: no withdrawal permissions, never committed to git, rotated before funding.
@@ -28,18 +27,19 @@ trading.
 
 ## Running it
 
-Runs via Docker. Full Windows deployment steps: [docs/DEPLOY-WINDOWS.md](docs/DEPLOY-WINDOWS.md).
+Do **not** start Docker or paper trading yet. The checked-in `MemeMomentum` strategy is the
+retired Family A implementation; it is retained as research evidence, not an approval to run.
+`config-paper.json` stays in dry-run mode and starts stopped, while the Compose launcher also
+refuses to run unless a future approval is recorded deliberately.
 
-On the Mac (same commands, for testing):
-
-- Start (paper mode): `docker compose up -d`
-- Watch: open http://127.0.0.1:8080 (FreqUI) — login `yolo` / the FT_PASS from `.env`
-- Daily health check: `FT_PASS=... .venv/bin/python scripts/health_check.py`
-- Stop (kill switch): `docker compose down`
+Windows preparation notes are in [docs/DEPLOY-WINDOWS.md](docs/DEPLOY-WINDOWS.md), but its
+launch steps remain blocked until a strategy passes research review and Austin explicitly
+approves the paper run.
 
 Predecessor: `~/freqtrade` (the "AI Trading Company" project) — retired; its autopsy is
 summarized in the spec.
 
 ## Versions
 
-Freqtrade 2026.4 (CCXT 4.5.50) via freqtradeorg/freqtrade:stable, resolved 2026-07-18.
+The Compose file currently references `freqtradeorg/freqtrade:stable`; pin and verify an exact
+image before any future paper approval so behavior cannot drift between runs.
