@@ -1,11 +1,15 @@
 # YOLO family B — momentum continuation above structure, two universe arms
 
 **Date:** 2026-07-20
-**Status:** APPROVED by Austin, 2026-07-22, as written — the gate in §8 is passed.
-Approval adopts the §6 recommendation: ≥5 trades/up-regime-week stays a hard kill.
-(History: DRAFT v2 audited research-auditor/opus 2026-07-20, verdict REVIEW; all
-seven findings folded in — §9.) Work order: implementation plan → TDD build →
-phase 0 → dev phase only if the kill bar passes.
+**Status:** CLOSED — phase 0 kill gate **FAIL**, 2026-07-22. Family B retired at
+**zero iterations** per §5's pre-registered falsifier: selected look
+L|96-0.02-0.04-1.5|96h, mean gross +2.41%, selection-aware 95% lower bound
+−1.35% vs the 0.9% round trip. Holdout stays sealed for the next family. Result
+record: `docs/backtests.md` (Family B PHASE 0 section) and
+`docs/diagnostics/2026-07-22-family-b-phase0.{txt,csv → -cells.csv}`.
+(History: APPROVED by Austin 2026-07-22 as written, adopting §6's ≥5
+trades/up-week hard kill; DRAFT v2 audited research-auditor/opus 2026-07-20,
+verdict REVIEW; all seven findings folded in — §9.)
 **Opens:** family A retired 2026-07-20 after 3 of 15 dev iterations — every cell
 decisively negative, gross expectancy ≈ 0 on both arms (`docs/family-a-post-mortem.md`).
 **Still governs:** master spec §6 risk guardrails and §8 security rules; v2 brief regime

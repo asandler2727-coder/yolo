@@ -779,3 +779,50 @@ gap-excluded — such entries still count in the frequency upper bound.
 
 *(Result to be recorded below after the run — nothing above this line may
 change once it does.)*
+
+### Phase 0 result — 2026-07-22 — KILL BAR FAIL — family B retired at zero iterations
+
+Artifacts: `docs/diagnostics/2026-07-22-family-b-phase0.txt` (full report),
+`docs/diagnostics/2026-07-22-family-b-phase0-cells.csv` (all 486 looks).
+Engine: commits `fc0891d`…`b6d480d` + dtype fix `291bc83`, 55 tests green.
+The first attempt crashed before producing any number (mixed datetime units
+in the regime merge — `tee` masked the non-zero exit), so nothing was seen
+before the fix; pre-registration unbroken. Seal guard OK: no candle at/after
+2025-09-01 read. Exclusions: 8,513 vetoed gap-opens, 678 seal-truncated, 0
+data-gap, 0 no-fill. Up-regime weeks in dev: 38.98.
+
+**Verdict.** Selected look (argmax over all 486): arm L, cell
+`ref_lookback=96, min_ext=0.02, max_ext=0.04, volume_mult=1.5`, 96h horizon,
+n=426. Mean gross forward return **+2.41%**, month-clustered se 1.51%,
+max-statistic q95 = 2.489 → **selection-aware 95% lower bound −1.35% vs the
+0.9% round trip: FAIL.** Per-arm bounds fail too (L −1.24%; D best look
+`192-0.02-0.03-2.0|48h` mean +0.66%, bound −2.04%). Per the falsifier fixed
+above: **family B is dead at zero iterations. Budget closed at 0 of 10. The
+holdout 2025-09→2026-01 stays sealed and passes intact to the next family.**
+
+**The gate did exactly the job it was built for.** The naive re-selected 5th
+percentile — what draft v1's bar would in effect have tested — reads +0.91%,
+a hair over the 0.9% hurdle: the unaudited gate would have green-lit ten
+iterations on this. The honest bound says the +2.41% mean is not
+distinguishable from fee-level noise once the 486-way selection and 19-month
+clustering are priced: passing needed mean ≥ ~4.7% (0.9% + 2.489 × 1.51%) at
+this sample size and volatility. That arithmetic is program-level knowledge:
+on ~19 dev months with per-trade σ this large, only an edge of several
+percent per trade is certifiable at all. Verified before recording: spot
+check reproduced two entries end-to-end (extension, volume ratio, fill,
+96h return, regime) from raw candles with independent arithmetic.
+
+**In-sample observations recorded for future hypothesis-writing (nothing
+more — no iteration may act on them):**
+
+- The seed's extrapolation is **refuted past ~3% extension**: the gradient
+  rises to a peak in the 1.5–3% bands (L 96h: +2.1% and +2.2%) and collapses
+  in the 4–6% band (L 96h −3.6%, D 96h −5.1%, monotone-bad on both arms at
+  24h/48h too). Confirmed motion helps only until it is chasing.
+- Direction of the family A seed replicated in sign (more extension beats
+  less, up to a point; longer horizons beat shorter on arm L) but not at a
+  certifiable size. Arm D is uniformly weaker again.
+- Path shape of the selected cell's entries (96h, untruncated): median peak
+  ~+10% (p75 ~+20%), median time-to-peak ~31–33h, median pre-peak drawdown
+  ~−3%. Any future family in this area should expect stops tighter than −3%
+  to clip half its winners before they peak.

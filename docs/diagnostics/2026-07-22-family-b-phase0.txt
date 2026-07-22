@@ -1,0 +1,101 @@
+Seal guard OK: no candle at/after 2025-09-01 read.
+
+==============================================================================
+VERDICT
+==============================================================================
+Selected look: L|96-0.02-0.04-1.5|96h  (n=426)
+  mean=+2.4090% se=1.5098% q95_max_t=2.489
+  LB=-1.3486% vs arm L round trip 0.900% -> FAIL
+  naive (unadjusted) 5th pct of re-selected max: +0.9113%
+  arm L best look (own max-t bound): L|96-0.02-0.04-1.5|96h mean=+2.4090% LB=-1.2360%
+  arm D best look (own max-t bound): D|192-0.02-0.03-2.0|48h mean=+0.6635% LB=-2.0381%
+
+==============================================================================
+TOP-20 LOOKS BY MEAN (eligible only)
+==============================================================================
+  L|96-0.02-0.04-1.5|96h         n=  426 mean=+2.4090% se=1.5098% trades/up-week=10.930
+  L|96-0.02-0.04-2.0|96h         n=  418 mean=+2.3732% se=1.5026% trades/up-week=10.724
+  L|96-0.02-0.04-3.0|96h         n=  381 mean=+2.2582% se=1.4991% trades/up-week=9.775
+  L|96-0.02-0.03-1.5|96h         n=  350 mean=+2.2496% se=1.5279% trades/up-week=8.980
+  L|96-0.02-0.04-3.0|48h         n=  406 mean=+2.2370% se=1.2727% trades/up-week=10.417
+  L|96-0.02-0.04-1.5|48h         n=  463 mean=+2.2217% se=1.2466% trades/up-week=11.879
+  L|96-0.02-0.03-1.5|48h         n=  372 mean=+2.1856% se=1.2646% trades/up-week=9.544
+  L|48-0.02-0.03-1.5|96h         n=  392 mean=+2.1827% se=1.4893% trades/up-week=10.057
+  L|48-0.02-0.04-1.5|96h         n=  482 mean=+2.1562% se=1.4395% trades/up-week=12.367
+  L|96-0.02-0.03-2.0|96h         n=  340 mean=+2.1439% se=1.4800% trades/up-week=8.723
+  L|96-0.02-0.04-2.0|48h         n=  454 mean=+2.1218% se=1.2586% trades/up-week=11.648
+  L|48-0.02-0.03-1.5|48h         n=  432 mean=+2.0188% se=1.0171% trades/up-week=11.084
+  L|48-0.02-0.04-3.0|96h         n=  428 mean=+2.0041% se=1.2817% trades/up-week=10.981
+  L|96-0.02-0.03-2.0|48h         n=  362 mean=+1.9998% se=1.2589% trades/up-week=9.288
+  L|192-0.02-0.04-1.5|96h        n=  378 mean=+1.9798% se=1.4408% trades/up-week=9.698
+  L|48-0.02-0.04-2.0|96h         n=  471 mean=+1.9575% se=1.3541% trades/up-week=12.084
+  L|192-0.02-0.04-1.5|48h        n=  401 mean=+1.9309% se=1.0628% trades/up-week=10.288
+  L|48-0.02-0.06-1.5|96h         n=  523 mean=+1.9246% se=1.3515% trades/up-week=13.444
+  L|48-0.02-0.03-2.0|96h         n=  383 mean=+1.9128% se=1.3680% trades/up-week=9.827
+  L|192-0.02-0.03-1.5|48h        n=  326 mean=+1.8726% se=1.2174% trades/up-week=8.364
+
+==============================================================================
+EXTENSION GRADIENT (decision 8, widest cell 96-0.005-0.06-2.0)
+==============================================================================
+  D 24h [0.005,0.01)   n= 2729 mean_fwd_ret=+0.3167%
+  D 24h [0.01,0.015)   n= 1146 mean_fwd_ret=+0.3925%
+  D 24h [0.015,0.02)   n=  534 mean_fwd_ret=+0.6408%
+  D 24h [0.02,0.03)    n=  440 mean_fwd_ret=-0.0050%
+  D 24h [0.03,0.04)    n=  159 mean_fwd_ret=-0.8313%
+  D 24h [0.04,0.06]    n=  129 mean_fwd_ret=-1.0868%
+  D 48h [0.005,0.01)   n= 2346 mean_fwd_ret=+0.4012%
+  D 48h [0.01,0.015)   n=  975 mean_fwd_ret=+0.0879%
+  D 48h [0.015,0.02)   n=  454 mean_fwd_ret=+0.6561%
+  D 48h [0.02,0.03)    n=  358 mean_fwd_ret=-0.5691%
+  D 48h [0.03,0.04)    n=  133 mean_fwd_ret=-2.2713%
+  D 48h [0.04,0.06]    n=  108 mean_fwd_ret=-2.6772%
+  D 96h [0.005,0.01)   n= 1872 mean_fwd_ret=+0.4416%
+  D 96h [0.01,0.015)   n=  771 mean_fwd_ret=+0.2416%
+  D 96h [0.015,0.02)   n=  357 mean_fwd_ret=+1.4372%
+  D 96h [0.02,0.03)    n=  267 mean_fwd_ret=-0.0781%
+  D 96h [0.03,0.04)    n=  114 mean_fwd_ret=-3.5957%
+  D 96h [0.04,0.06]    n=   86 mean_fwd_ret=-5.0953%
+  L 24h [0.005,0.01)   n= 1624 mean_fwd_ret=+0.3072%
+  L 24h [0.01,0.015)   n=  592 mean_fwd_ret=+0.3570%
+  L 24h [0.015,0.02)   n=  284 mean_fwd_ret=+1.3147%
+  L 24h [0.02,0.03)    n=  184 mean_fwd_ret=+0.6332%
+  L 24h [0.03,0.04)    n=   71 mean_fwd_ret=+3.0585%
+  L 24h [0.04,0.06]    n=   37 mean_fwd_ret=-2.2043%
+  L 48h [0.005,0.01)   n= 1331 mean_fwd_ret=+1.0038%
+  L 48h [0.01,0.015)   n=  497 mean_fwd_ret=+0.7549%
+  L 48h [0.015,0.02)   n=  221 mean_fwd_ret=+3.0948%
+  L 48h [0.02,0.03)    n=  131 mean_fwd_ret=+0.8375%
+  L 48h [0.03,0.04)    n=   56 mean_fwd_ret=+0.7661%
+  L 48h [0.04,0.06]    n=   28 mean_fwd_ret=-6.2871%
+  L 96h [0.005,0.01)   n= 1038 mean_fwd_ret=+0.9366%
+  L 96h [0.01,0.015)   n=  381 mean_fwd_ret=+0.6535%
+  L 96h [0.015,0.02)   n=  177 mean_fwd_ret=+2.1039%
+  L 96h [0.02,0.03)    n=  109 mean_fwd_ret=+2.2060%
+  L 96h [0.03,0.04)    n=   40 mean_fwd_ret=+0.8335%
+  L 96h [0.04,0.06]    n=   20 mean_fwd_ret=-3.5947%
+
+==============================================================================
+PATH DISTRIBUTION (decision 7, 96h de-overlapped, untruncated entries)
+==============================================================================
+  cell 96-0.02-0.04-1.5 [selected]
+    arm L n=426
+      peak            p25=+4.4112% p50=+9.6713% p75=+20.1429% p90=+35.1126%
+      time_to_peak_h  p25=8.25 p50=33.00 p75=72.12 p90=90.88
+      pre_peak_dd     p25=-5.4387% p50=-2.8566% p75=-1.1482% p90=-0.4135%
+    arm D n=988
+      peak            p25=+4.2860% p50=+10.1427% p75=+21.2888% p90=+37.1303%
+      time_to_peak_h  p25=4.50 p50=30.75 p75=78.25 p90=99.08
+      pre_peak_dd     p25=-7.3408% p50=-3.3008% p75=-1.4024% p90=-0.4321%
+  cell 96-0.01-0.04-2.0 [default]
+    arm L n=1143
+      peak            p25=+3.3699% p50=+8.2975% p75=+15.8043% p90=+26.7005%
+      time_to_peak_h  p25=10.00 p50=40.25 p75=76.38 p90=92.50
+      pre_peak_dd     p25=-4.7121% p50=-2.2058% p75=-0.8266% p90=-0.2574%
+    arm D n=2281
+      peak            p25=+4.2575% p50=+9.6067% p75=+18.6975% p90=+32.6563%
+      time_to_peak_h  p25=8.00 p50=42.50 p75=84.25 p90=104.25
+      pre_peak_dd     p25=-6.2455% p50=-2.8565% p75=-0.9009% p90=-0.2035%
+
+Exclusions (across all looks): {'vetoed': 8513, 'no_fill': 0, 'seal_truncated': 678, 'gap_excluded': 0}
+Up-regime weeks in dev window: 38.98 (trades/up-week is labeled an unconstrained upper bound, decision 9)
+CSV written: docs/diagnostics/2026-07-22-family-b-phase0-cells.csv (486 rows)
